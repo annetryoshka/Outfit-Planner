@@ -2,6 +2,8 @@ const express = require('express')
 const cors = require('cors')
 const dotenv = require('dotenv')
 const pool = require('./src/config/database')
+const authRoutes = require('./src/routes/auth')
+const authMiddleware = require('./src/middleware/auth')
 
 dotenv.config()
 
@@ -12,9 +14,17 @@ const PORT = process.env.PORT || 3000
 app.use(cors())
 app.use(express.json())
 
-//Ruta de prueba
+//rutas
+app.use('/api/auth', authRoutes)
+
+//ruta extra de prueba :vv
 app.get('/', (req, res) => {
   res.json({ message: 'Outfit Planner API funcionando uwuwewe' })
+})
+
+//ruta protegida de prueba :v
+app.get('/api/perfil', authMiddleware, (req, res) => {
+  res.json({ message: 'Ruta protegida', usuario: req.usuario })
 })
 
 app.listen(PORT, () => {
