@@ -5,6 +5,9 @@ const pool = require('./src/config/database')
 const authRoutes = require('./src/routes/auth')
 const authMiddleware = require('./src/middleware/auth')
 const outfitRoutes = require('./src/routes/outfits')
+const climaRoutes = require('./src/routes/clima')
+const asistenteRoutes = require('./src/routes/asistente')
+const { specs, swaggerUi } = require('./src/config/swagger')
 
 dotenv.config()
 
@@ -18,6 +21,9 @@ app.use(express.json())
 //rutas
 app.use('/api/auth', authRoutes)
 app.use('/api/outfits', outfitRoutes)
+app.use('/api/clima', climaRoutes)
+app.use('/api/asistente', asistenteRoutes)
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs))
 
 //ruta extra de prueba :vv
 app.get('/', (req, res) => {
