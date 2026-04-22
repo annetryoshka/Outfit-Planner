@@ -1,5 +1,6 @@
 const Outfit = require('../models/Outfit')
 const { tryOnOutfit } = require('../services/tryonService')
+const { uploadToStorage } = require('../services/uploadService')
 
 const outfitController = {
   async crear(req, res) {
@@ -105,6 +106,7 @@ const outfitController = {
       const urlFinal = await uploadToStorage(buffer, nombreArchivo);
 
       res.json({ 
+        status: 200,
         message: '¡Prueba virtual generada!',
         tryon_result_url: urlFinal 
       });
