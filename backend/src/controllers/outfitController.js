@@ -1,4 +1,5 @@
 const Outfit = require('../models/Outfit')
+const { tryOnOutfit } = require('../services/tryonService')
 
 const outfitController = {
   async crear(req, res) {
@@ -80,6 +81,36 @@ const outfitController = {
       res.json({ message: 'Prenda quitada del outfit' })
     } catch (error) {
       res.status(500).json({ message: 'Error al quitar prenda', error: error.message })
+    }
+  },
+  async probarOutfit(req, res) {
+    try {
+      const outfit = await Outfit.findById(req.params.id)
+      if (!outfit) return res.status(404).json({ message: 'Outfit no encontrado' })
+      const prendas = await Outfit.getPrendas(req.params.id) 
+      
+      if (!prendas || prendas.length === 0) {
+        return res.status(400).json({ message: 'Este outfit no tiene prendas asociadas' })
+      }
+      const topUrl = prendas[0].imagen_url
+      const bottomUrl = prendas.length > 1 ? prendas[1].imagen_url : null;
+
+      const resultadoUrlIA = await tryOnOutfit(topUrl, bottomUrl);
+      if (!resultadoUrlIA) return res.status(500).json({ message: 'Error al probar el outfit' })
+
+      const responseIA = await fetch(resultadoUrlIA);
+      const buffer = Buffer.from(await responseIA.arrayBuffer());
+      
+      const nombreArchivo = `tryon_${req.usuario.id}_${Date.now()}`;
+      const urlFinal = await uploadToStorage(buffer, nombreArchivo);
+
+      res.json({ 
+        message: '¡Prueba virtual generada!',
+        tryon_result_url: urlFinal 
+      });
+      
+    } catch (error) {
+      res.status(500).json({ message: 'Error al probar el outfit', error: error.message })
     }
   }
 }
