@@ -64,6 +64,16 @@ const Outfit = {
       `DELETE FROM outfit_prendas WHERE outfit_id=$1 AND prenda_id=$2`,
       [outfit_id, prenda_id]
     )
+  },
+
+  async getPrendas(outfit_id) {
+    const result = await pool.query(
+      `SELECT p.* FROM prendas p
+       JOIN outfit_prendas op ON p.id = op.prenda_id
+       WHERE op.outfit_id = $1`,
+      [outfit_id]
+    );
+    return result.rows;
   }
 }
 
