@@ -5,68 +5,28 @@ import { Plus, ShoppingBag, ExternalLink, Search } from 'lucide-react'
 const HomePage = () => {
   const [activeTab, setActiveTab] = useState('todos')
 
-  // Datos mockeados para el tablero Pinterest
+  // Datos mockeados para demo de emergencia - 20 imágenes dinámicas
   const mockItems = [
-    {
-      id: 1,
-      type: 'image',
-      url: 'https://images.unsplash.com/photo-1539109136881-3be0616acf4b?w=400&h=600&fit=crop',
-      title: 'Elegancia Urbana',
-      category: 'outfit'
-    },
-    {
-      id: 2,
-      type: 'inspiration',
-      content: 'Combina tonos tierra para este Otoño 🍂',
-      color: 'crema'
-    },
-    {
-      id: 3,
-      type: 'image',
-      url: 'https://images.unsplash.com/photo-1469334031218-e382a71b716b?w=400&h=500&fit=crop',
-      title: 'Minimalismo Chic',
-      category: 'outfit'
-    },
-    {
-      id: 4,
-      type: 'image',
-      url: 'https://images.unsplash.com/photo-1441986300917-64674bd600d8?w=400&h=300&fit=crop',
-      title: 'Estilo Casual',
-      category: 'outfit'
-    },
-    {
-      id: 5,
-      type: 'inspiration',
-      content: 'La moda sostenible es el futuro ♻️',
-      color: 'crema'
-    },
-    {
-      id: 6,
-      type: 'image',
-      url: 'https://images.unsplash.com/photo-1483985988355-763728e1935b?w=400&h=550&fit=crop',
-      title: 'Noche Elegante',
-      category: 'outfit'
-    },
-    {
-      id: 7,
-      type: 'image',
-      url: 'https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?w=400&h=400&fit=crop',
-      title: 'Business Casual',
-      category: 'outfit'
-    },
-    {
-      id: 8,
-      type: 'inspiration',
-      content: 'Menos es más: 10 prendas básicas que necesitas',
-      color: 'crema'
-    },
-    {
-      id: 9,
-      type: 'image',
-      url: 'https://images.unsplash.com/photo-1495385794356-15371f348c31?w=400&h=450&fit=crop',
-      title: 'Boho Style',
-      category: 'outfit'
-    }
+    { id: 1, type: 'image', url: 'https://picsum.photos/400/300?random=1' },
+    { id: 2, type: 'image', url: 'https://picsum.photos/400/500?random=2' },
+    { id: 3, type: 'image', url: 'https://picsum.photos/400/400?random=3' },
+    { id: 4, type: 'image', url: 'https://picsum.photos/400/600?random=4' },
+    { id: 5, type: 'image', url: 'https://picsum.photos/400/350?random=5' },
+    { id: 6, type: 'image', url: 'https://picsum.photos/400/450?random=6' },
+    { id: 7, type: 'image', url: 'https://picsum.photos/400/550?random=7' },
+    { id: 8, type: 'image', url: 'https://picsum.photos/400/380?random=8' },
+    { id: 9, type: 'image', url: 'https://picsum.photos/400/520?random=9' },
+    { id: 10, type: 'image', url: 'https://picsum.photos/400/420?random=10' },
+    { id: 11, type: 'image', url: 'https://picsum.photos/400/480?random=11' },
+    { id: 12, type: 'image', url: 'https://picsum.photos/400/360?random=12' },
+    { id: 13, type: 'image', url: 'https://picsum.photos/400/540?random=13' },
+    { id: 14, type: 'image', url: 'https://picsum.photos/400/440?random=14' },
+    { id: 15, type: 'image', url: 'https://picsum.photos/400/500?random=15' },
+    { id: 16, type: 'image', url: 'https://picsum.photos/400/320?random=16' },
+    { id: 17, type: 'image', url: 'https://picsum.photos/400/580?random=17' },
+    { id: 18, type: 'image', url: 'https://picsum.photos/400/460?random=18' },
+    { id: 19, type: 'image', url: 'https://picsum.photos/400/390?random=19' },
+    { id: 20, type: 'image', url: 'https://picsum.photos/400/510?random=20' }
   ]
 
   const tabs = [
@@ -89,9 +49,9 @@ const HomePage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-base relative">
+    <div className="min-h-screen relative">
       {/* Barra de Navegación Superior */}
-      <header className="bg-base border-b border-arena/20 px-8 py-4">
+      <header className="sticky top-0 z-50 bg-[#ffffff] shadow-sm px-8 py-4">
         <div className="flex items-center justify-between">
           {/* Tabs de navegación - Izquierda */}
           <nav className="flex gap-8">
@@ -100,10 +60,10 @@ const HomePage = () => {
                 key={tab.id}
                 onClick={() => setActiveTab(tab.id)}
                 className={`
-                  px-2 py-4 font-medium transition-all duration-300 relative
+                  px-4 py-2 font-medium transition-all duration-300 rounded-2xl
                   ${activeTab === tab.id 
-                    ? 'text-vino border-b-4 border-vino' 
-                    : 'text-arena hover:text-vino/70'
+                    ? 'bg-[#9f8aef] text-[#ffffff]' 
+                    : 'text-gray-900 hover:bg-[#f6ccfa]'
                   }
                 `}
               >
@@ -113,13 +73,13 @@ const HomePage = () => {
           </nav>
 
           {/* Buscador Central */}
-          <div className="flex-1 max-w-md mx-8">
+          <div className="flex-1 mx-8">
             <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-arena/60" />
+              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
               <input
                 type="text"
                 placeholder="Buscar outfits o prendas..."
-                className="w-full pl-12 pr-4 py-3 bg-crema rounded-full border-2 border-transparent focus:border-vino focus:outline-none transition-all duration-300 text-arena placeholder-arena/60"
+                className="w-full pl-12 pr-4 py-3 bg-[#ffffff] rounded-full border-2 border-[#f6ccfa] focus:border-[#9f8aef] focus:ring-0 focus:outline-none transition-all duration-300 text-gray-900 placeholder-gray-600"
               />
             </div>
           </div>
@@ -131,10 +91,10 @@ const HomePage = () => {
               return (
                 <button
                   key={shop.name}
-                  className="flex items-center gap-2 px-4 py-2 bg-crema/50 hover:bg-crema rounded-2xl transition-all duration-300 group"
+                  className="flex items-center gap-2 px-4 py-2 bg-transparent hover:bg-[#f6ccfa] rounded-2xl transition-all duration-300 group"
                 >
-                  <Icon className="w-4 h-4 text-vino group-hover:scale-110 transition-transform" />
-                  <span className="text-arena text-sm font-medium">{shop.name}</span>
+                  <Icon className="w-4 h-4 text-gray-900 group-hover:scale-110 transition-transform" />
+                  <span className="text-gray-900 text-sm font-medium">{shop.name}</span>
                 </button>
               )
             })}
@@ -143,7 +103,7 @@ const HomePage = () => {
       </header>
 
       {/* Contenido Principal */}
-      <main className="p-8">
+      <main className="p-8 bg-gradient-to-b from-[#fafbad] from-5% via-[#ffffff] via-50% to-[#fafbad] to-95% bg-fixed min-h-screen">
         <Masonry
           breakpointCols={breakpointColumnsObj}
           className="flex gap-6"
@@ -155,27 +115,23 @@ const HomePage = () => {
               className="mb-6 break-inside-avoid"
             >
               {item.type === 'image' ? (
-                <div className="bg-crema rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group">
+                <div className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group">
                   <div className="relative overflow-hidden">
                     <img
                       src={item.url}
-                      alt={item.title}
+                      alt="Prenda de moda"
                       className="w-full object-cover transition-transform duration-500 group-hover:scale-105"
                     />
-                    <div className="absolute inset-0 bg-gradient-to-t from-black/50 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  </div>
-                  <div className="p-4">
-                    <h3 className="font-medium text-vino">{item.title}</h3>
-                    <p className="text-sm text-arena mt-1">{item.category}</p>
+                    {/* Capa de sombreado suave en hover */}
+                    <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    
+                    {/* Botón Guardar dinámico */}
+                    <button className="absolute top-4 right-4 bg-[#79d063] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-[#79d063]/90">
+                      Guardar
+                    </button>
                   </div>
                 </div>
-              ) : (
-                <div className={`bg-${item.color} rounded-3xl p-8 shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group`}>
-                  <p className="text-xl font-medium text-vino leading-relaxed group-hover:scale-105 transition-transform duration-300">
-                    {item.content}
-                  </p>
-                </div>
-              )}
+              ) : null}
             </div>
           ))}
         </Masonry>

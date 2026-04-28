@@ -1,7 +1,9 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import { Home, Compass, Calendar, User, ShoppingBag, Plus } from 'lucide-react'
 
 const Sidebar = () => {
+  const navigate = useNavigate()
   const [activeItem, setActiveItem] = useState('home')
 
   const menuItems = [
@@ -11,10 +13,10 @@ const Sidebar = () => {
   ]
 
   return (
-    <div className="fixed left-0 top-0 w-20 bg-gris-claro h-screen flex flex-col items-center py-8 gap-8 z-50">
+    <div className="fixed left-0 top-0 w-20 bg-[#c2e1f9] h-screen flex flex-col items-center py-8 gap-8 z-50">
       {/* Logo */}
-      <div className="w-12 h-12 bg-vino rounded-2xl flex items-center justify-center shadow-lg">
-        <ShoppingBag className="w-7 h-7 text-crema" />
+      <div className="w-12 h-12 bg-[#9f8aef] rounded-2xl flex items-center justify-center shadow-lg">
+        <ShoppingBag className="w-7 h-7 text-[#ffffff]" />
       </div>
 
       {/* Navegación Vertical */}
@@ -24,48 +26,71 @@ const Sidebar = () => {
           const isActive = activeItem === item.id
           
           return (
-            <button
-              key={item.id}
-              onClick={() => setActiveItem(item.id)}
-              className={`
-                w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300
-                ${isActive 
-                  ? 'bg-vino shadow-lg' 
-                  : 'hover:bg-arena/30'
-                }
-              `}
-              title={item.label}
-            >
-              <Icon 
-                className={`w-6 h-6 transition-colors duration-300 ${
-                  isActive ? 'text-crema' : 'text-vino'
-                }`} 
-              />
-            </button>
+            <div className="relative group">
+              <button
+                key={item.id}
+                onClick={() => {
+                  setActiveItem(item.id)
+                  if (item.id === 'home') {
+                    navigate('/')
+                  }
+                }}
+                className={`
+                  w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300
+                  ${isActive 
+                    ? 'bg-[#9f8aef] shadow-lg' 
+                    : 'hover:bg-[#9f8aef]/30'
+                  }
+                `}
+              >
+                <Icon 
+                  className={`w-6 h-6 transition-colors duration-300 ${
+                    isActive ? 'text-[#ffffff]' : 'text-[#9f8aef]'
+                  }`} 
+                />
+              </button>
+              
+              {/* Tooltip */}
+              <div className="absolute left-full ml-3 bottom-1/2 translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+                <div className="bg-[#9f8aef] text-[#ffffff] px-3 py-2 rounded-xl text-sm whitespace-nowrap shadow-lg">
+                  {item.label}
+                  <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-[#9f8aef]"></div>
+                </div>
+              </div>
+            </div>
           )
         })}
       </nav>
 
       {/* Botón Añadir Prenda */}
-      <button
-        onClick={() => window.location.href = '/añadir-prenda'}
-        className="w-12 h-12 bg-arena/30 hover:bg-vino rounded-2xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 group"
-        title="Añadir Prenda"
-      >
-        <Plus className="w-6 h-6 text-vino group-hover:text-crema transition-colors" />
-      </button>
-
-      {/* Perfil/Inventario */}
       <div className="relative group">
-        <button className="w-12 h-12 bg-vino rounded-2xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300">
-          <User className="w-6 h-6 text-crema" />
+        <button
+          onClick={() => window.location.href = '/añadir-prenda'}
+          className="w-12 h-12 bg-[#9f8aef] hover:bg-[#9f8aef]/80 rounded-2xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300"
+        >
+          <Plus className="w-6 h-6 text-[#ffffff] group-hover:scale-110 transition-colors" />
         </button>
         
         {/* Tooltip */}
         <div className="absolute left-full ml-3 bottom-1/2 translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
-          <div className="bg-vino text-crema px-3 py-2 rounded-xl text-sm whitespace-nowrap shadow-lg">
+          <div className="bg-[#9f8aef] text-[#ffffff] px-3 py-2 rounded-xl text-sm whitespace-nowrap shadow-lg">
+            Añadir Prenda
+            <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-[#9f8aef]"></div>
+          </div>
+        </div>
+      </div>
+
+      {/* Perfil/Inventario */}
+      <div className="relative group">
+        <button className="w-12 h-12 bg-[#9f8aef] rounded-2xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300">
+          <User className="w-6 h-6 text-[#ffffff]" />
+        </button>
+        
+        {/* Tooltip */}
+        <div className="absolute left-full ml-3 bottom-1/2 translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+          <div className="bg-[#9f8aef] text-[#ffffff] px-3 py-2 rounded-xl text-sm whitespace-nowrap shadow-lg">
             Mi Armario/Perfil
-            <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-vino"></div>
+            <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-[#9f8aef]"></div>
           </div>
         </div>
       </div>
