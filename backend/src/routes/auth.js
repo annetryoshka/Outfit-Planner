@@ -1,6 +1,7 @@
 const express = require('express')
 const router = express.Router()
 const authController = require('../controllers/authController')
+const authMiddleware = require('../middleware/auth')
 
 /**
  * @swagger
@@ -57,5 +58,34 @@ router.post('/registro', authController.registro)
  *         description: Credenciales incorrectas
  */
 router.post('/login', authController.login)
+
+/**
+ * @swagger
+ * /api/auth/perfil:
+ *   put:
+ *     summary: Actualizar perfil del usuario
+ *     tags: [Auth]
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *               foto_perfil:
+ *                 type: string
+ *               ciudad:
+ *                 type: string
+ *               bio:
+ *                 type: string
+ *               es_privado:
+ *                 type: boolean
+ *     responses:
+ *       200:
+ *         description: Perfil actualizado
+ */
+router.put('/perfil', authMiddleware, authController.actualizarPerfil)
 
 module.exports = router

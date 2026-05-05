@@ -22,9 +22,8 @@ const Sidebar = () => {
           const isActive = activeItem === item.id
           
           return (
-            <div className="relative group">
+            <div className="relative group" key={item.id}>
               <button
-                key={item.id}
                 onClick={() => {
                   setActiveItem(item.id)
                   if (item.id === 'home') {
@@ -68,7 +67,7 @@ const Sidebar = () => {
       {/* Botón Añadir Prenda */}
       <div className="relative group">
         <button
-          onClick={() => window.location.href = '/añadir-prenda'}
+          onClick={() => navigate('/añadir-prenda')}
           className="w-12 h-12 bg-[#9f8aef] hover:bg-[#9f8aef]/80 rounded-2xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300"
         >
           <Plus className="w-6 h-6 text-[#ffffff] group-hover:scale-110 transition-colors" />
