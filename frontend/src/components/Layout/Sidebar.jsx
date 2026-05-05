@@ -8,19 +8,15 @@ const Sidebar = () => {
 
   const menuItems = [
     { id: 'home', icon: Home, label: 'Home' },
+    { id: 'wishlist', icon: ShoppingBag, label: 'Wishlist' },
     { id: 'explore', icon: Compass, label: 'Explorar' },
     { id: 'calendar', icon: Calendar, label: 'Calendario' },
   ]
 
   return (
-    <div className="fixed left-0 top-0 w-20 bg-[#c2e1f9] h-screen flex flex-col items-center py-8 gap-8 z-50">
-      {/* Logo */}
-      <div className="w-12 h-12 bg-[#9f8aef] rounded-2xl flex items-center justify-center shadow-lg">
-        <ShoppingBag className="w-7 h-7 text-[#ffffff]" />
-      </div>
-
+    <div className="fixed left-0 top-0 w-20 bg-[#c2e1f9] h-screen flex flex-col items-center pt-8 pb-8 gap-4 z-50">
       {/* Navegación Vertical */}
-      <nav className="flex flex-col gap-4 flex-1">
+      <nav className="flex flex-col gap-4">
         {menuItems.map((item) => {
           const Icon = item.icon
           const isActive = activeItem === item.id
@@ -33,6 +29,8 @@ const Sidebar = () => {
                   setActiveItem(item.id)
                   if (item.id === 'home') {
                     navigate('/')
+                  } else if (item.id === 'wishlist') {
+                    navigate('/wishlist')
                   }
                 }}
                 className={`
@@ -51,7 +49,7 @@ const Sidebar = () => {
               </button>
               
               {/* Tooltip */}
-              <div className="absolute left-full ml-3 bottom-1/2 translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+              <div className="absolute left-full ml-3 bottom-1/2 translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none z-[9999]">
                 <div className="bg-[#9f8aef] text-[#ffffff] px-3 py-2 rounded-xl text-sm whitespace-nowrap shadow-lg">
                   {item.label}
                   <div className="absolute right-full top-1/2 -translate-y-1/2 border-8 border-transparent border-r-[#9f8aef]"></div>
@@ -61,6 +59,11 @@ const Sidebar = () => {
           )
         })}
       </nav>
+
+      <div className="flex-1"></div>
+      
+      {/* Tope Invisible para ajustar posición de botones inferiores */}
+      <div className="h-20"></div>
 
       {/* Botón Añadir Prenda */}
       <div className="relative group">

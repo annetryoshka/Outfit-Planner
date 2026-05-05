@@ -1,8 +1,11 @@
 import React, { useState } from 'react'
+import { useNavigate } from 'react-router-dom'
 import Masonry from 'react-masonry-css'
 import { Plus, ShoppingBag, ExternalLink, Search } from 'lucide-react'
+import logo3 from '../assets/logo3.png'
 
 const HomePage = () => {
+  const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('todos')
 
   // Datos mockeados para demo de emergencia - 20 imágenes dinámicas
@@ -51,9 +54,22 @@ const HomePage = () => {
   return (
     <div className="min-h-screen relative">
       {/* Barra de Navegación Superior */}
-      <header className="sticky top-0 z-50 bg-[#ffffff] shadow-sm px-8 py-4">
+      <header className="sticky top-0 z-30 bg-[#ffffff] shadow-sm px-8 py-4">
         <div className="flex items-center justify-between">
-          {/* Tabs de navegación - Izquierda */}
+          
+          {/* Logo PinWand - Extremo Izquierdo */}
+          <button
+            onClick={() => navigate('/')}
+            className="h-10 w-auto cursor-pointer mr-6 hover:opacity-90 transition-all"
+          >
+            <img
+              src={logo3}
+              alt="PinWand"
+              className="h-full w-auto object-contain"
+            />
+          </button>
+
+          {/* Tabs de navegación */}
           <nav className="flex gap-8">
             {tabs.map((tab) => (
               <button
@@ -115,7 +131,10 @@ const HomePage = () => {
               className="mb-6 break-inside-avoid"
             >
               {item.type === 'image' ? (
-                <div className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group">
+                <div 
+                  className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group"
+                  onClick={() => navigate(`/prenda/${item.id}`)}
+                >
                   <div className="relative overflow-hidden">
                     <img
                       src={item.url}
@@ -126,7 +145,10 @@ const HomePage = () => {
                     <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                     
                     {/* Botón Guardar dinámico */}
-                    <button className="absolute top-4 right-4 bg-[#79d063] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-[#79d063]/90">
+                    <button 
+                      onClick={(e) => e.stopPropagation()}
+                      className="absolute top-4 right-4 bg-[#79d063] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-[#79d063]/90"
+                    >
                       Guardar
                     </button>
                   </div>
