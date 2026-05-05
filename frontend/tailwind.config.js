@@ -7,11 +7,12 @@ export default {
   theme: {
     extend: {
       colors: {
-        'crema': '#edd4b2',
-        'arena': '#d0a98f',
-        'vino': '#4d243d',
-        'gris-claro': '#cac2b5',
-        'base': '#ecdcc9',
+        'blanco': '#ffffff',
+        'amarillo': '#fafbad',
+        'rosado': '#f6ccfa',
+        'morado': '#9f8aef',
+        'celeste': '#c2e1f9',
+        'verde': '#79d063',
       }
     },
   },
