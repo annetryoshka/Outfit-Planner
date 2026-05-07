@@ -7,8 +7,8 @@ const authService = {
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
         // Asumiendo que el backend devuelve datos del usuario
-        if (response.data.user) {
-          localStorage.setItem('user', JSON.stringify(response.data.user));
+        if (response.data.usuario) {
+          localStorage.setItem('usuario', JSON.stringify(response.data.usuario));
         }
       }
       return response.data;
@@ -44,7 +44,7 @@ const authService = {
   },
 
   getCurrentUser: () => {
-    const user = localStorage.getItem('user');
+    const user = localStorage.getItem('usuario');
     return user ? JSON.parse(user) : null;
   },
 
