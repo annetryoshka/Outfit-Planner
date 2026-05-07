@@ -8,9 +8,9 @@ router.use(authMiddleware);
 
 /**
  * @swagger
- * /api/outfits:
+ * /api/prendas:
  *   post:
- *     summary: Crear un nueva prenda
+ *     summary: Crear una nueva prenda
  *     tags: [Prendas]
  *     requestBody:
  *       required: true
@@ -23,7 +23,7 @@ router.use(authMiddleware);
  *                 type: string
  *               tipo:
  *                 type: string
- *              talla:
+ *               talla:
  *                 type: string
  *               color:
  *                 type: string
@@ -42,15 +42,16 @@ router.use(authMiddleware);
  *         description: Prenda creada exitosamente
  */
 router.post('/', prendaController.crear)
+
 /**
- * @swagger 
+ * @swagger
  * /api/prendas:
  *   get:
  *     summary: Obtener todas mis prendas
- *    tags: [Prendas]
- *    responses:
- *      200:
- *       description: Lista de prendas
+ *     tags: [Prendas]
+ *     responses:
+ *       200:
+ *         description: Lista de prendas
  */
 router.get('/', prendaController.obtenerMisPrendas)
 
@@ -97,8 +98,8 @@ router.get('/:id', prendaController.obtenerPorId)
  *                 type: string
  *               tipo:
  *                 type: string
- *              talla:
- *                type: string
+ *               talla:
+ *                 type: string
  *               color:
  *                 type: string
  *               temporada:
@@ -116,7 +117,7 @@ router.get('/:id', prendaController.obtenerPorId)
  *         description: Prenda actualizada exitosamente
  *       404:
  *         description: Prenda no encontrada
-     */
+ */
 router.put('/:id', prendaController.actualizar)
 
 /**
