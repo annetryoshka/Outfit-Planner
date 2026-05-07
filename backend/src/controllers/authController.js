@@ -5,7 +5,7 @@ const User = require('../models/User')
 const authController = {
   async registro(req, res) {
     try {
-      const { nombre, email, password } = req.body
+      const { nombre, apellido, email, password } = req.body
 
       //verificar si usuario existe o ne
       const usuarioExiste = await User.findByEmail(email)
@@ -20,6 +20,7 @@ const authController = {
       //crear usuario
       const usuario = await User.create({
         nombre,
+        apellido,
         email,
         password: passwordEncriptada
       })
@@ -66,6 +67,23 @@ const authController = {
 
     } catch (error) {
       res.status(500).json({ message: 'Error en el servidor', error: error.message })
+    }
+  },  
+
+  async actualizarPerfil(req, res) {
+    try {
+      const { nombre, apellido, foto_perfil, ciudad, bio, es_privado } = req.body
+      const usuario = await User.update(req.usuario.id, {
+        nombre,
+        apellido,
+        foto_perfil,
+        ciudad,
+        bio,
+        es_privado
+      })
+      res.json({ user: usuario })
+    } catch (error) {
+      res.status(500).json({ message: 'Error al actualizar perfil', error: error.message })
     }
   }
 }

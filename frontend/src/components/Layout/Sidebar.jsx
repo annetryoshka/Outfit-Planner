@@ -22,16 +22,17 @@ const Sidebar = () => {
           const isActive = activeItem === item.id
           
           return (
-            <div className="relative group">
+            <div className="relative group" key={item.id}>
               <button
-                key={item.id}
                 onClick={() => {
                   setActiveItem(item.id)
-                  if (item.id === 'home') {
-                    navigate('/')
-                  } else if (item.id === 'wishlist') {
-                    navigate('/wishlist')
+                  const paths = {
+                    home: '/',
+                    wishlist: '/wishlist',
+                    explore: '/explore',
+                    calendar: '/calendar'
                   }
+                  if (paths[item.id]) navigate(paths[item.id])
                 }}
                 className={`
                   w-12 h-12 rounded-2xl flex items-center justify-center transition-all duration-300
@@ -68,7 +69,7 @@ const Sidebar = () => {
       {/* Botón Añadir Prenda */}
       <div className="relative group">
         <button
-          onClick={() => window.location.href = '/añadir-prenda'}
+          onClick={() => navigate('/añadir-prenda')}
           className="w-12 h-12 bg-[#9f8aef] hover:bg-[#9f8aef]/80 rounded-2xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300"
         >
           <Plus className="w-6 h-6 text-[#ffffff] group-hover:scale-110 transition-colors" />
@@ -85,7 +86,15 @@ const Sidebar = () => {
 
       {/* Perfil/Inventario */}
       <div className="relative group">
-        <button className="w-12 h-12 bg-[#9f8aef] rounded-2xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300">
+        <button 
+          onClick={() => {
+            setActiveItem('profile')
+            navigate('/perfil')
+          }}
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 ${
+            activeItem === 'profile' ? 'bg-[#9f8aef]' : 'bg-[#9f8aef]/80 hover:bg-[#9f8aef]'
+          }`}
+        >
           <User className="w-6 h-6 text-[#ffffff]" />
         </button>
         
