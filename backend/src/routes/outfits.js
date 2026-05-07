@@ -166,4 +166,29 @@ router.post('/:id/prendas', outfitController.agregarPrenda)
  */
 router.delete('/:id/prendas', outfitController.quitarPrenda)
 
+/**
+ * @swagger
+ * /api/outfits/{id}/probar:
+ *   post:
+ *     summary: Probar outfit
+ *     tags: [Outfits]
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Prueba virtual generada
+ *       400:
+ *         description: Este outfit no tiene prendas asociadas
+ *       404:
+ *         description: Outfit no encontrado
+ *       500:
+ *         description: Error al probar el outfit
+ */
+
+router.post('/:id/probar', outfitController.probarOutfit)
+
 module.exports = router
