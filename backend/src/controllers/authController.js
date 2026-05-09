@@ -1,6 +1,7 @@
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const User = require('../models/User')
+const { uploadToStorage } = require('../services/uploadService')
 
 const authController = {
   async registro(req, res) {
@@ -72,7 +73,31 @@ const authController = {
 
   async actualizarPerfil(req, res) {
     try {
-      const { nombre, apellido, foto_perfil, ciudad, bio, es_privado } = req.body
+      const { nombre, apellido, ciudad, bio, es_privado } = req.body
+      let foto_perfil = req.body.foto_perfil;
+
+      if (req.file){
+        
+        const usuarioActual = await User.findById(req.usuario.id);
+        if (usuarioActual.foto_perfil) {
+          await deleteFromStorage(usuarioActual.foto_perfil, 'iconprofile');
+        }
+
+        console.log("Subiendo foto de perfil...");
+        const filename = `perfil_${req.usuario.id}_${Date.now()}`;
+        
+        foto_perfil = await uploadToStorage(
+          req.file.buffer,
+          filename,
+          'iconprofile',
+          req.usuario.id,
+          req.file.mimetype  
+        );
+
+        if (!foto_perfil) {
+          return res.status(500).json({ message: 'Error al subir la foto de perfil' });
+        }
+      }
       const usuario = await User.update(req.usuario.id, {
         nombre,
         apellido,

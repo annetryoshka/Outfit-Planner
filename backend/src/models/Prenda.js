@@ -1,12 +1,12 @@
 const pool = require('../config/database')
 
 const Prenda = {
-  async create({ user_id, nombre, tipo, talla, color, temporada, marca, material, imagen_url }) {
+  async create({ user_id, nombre, tipo, categoria, talla, color, temporada, marca, material, imagen_url, publico }) {
     const result = await pool.query(
-      `INSERT INTO prendas (user_id, nombre, tipo, talla, color, temporada, marca, material, imagen_url) 
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9) 
+      `INSERT INTO prendas (user_id, nombre, tipo, categoria, talla, color, temporada, marca, material, imagen_url, publico) 
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11) 
        RETURNING *`,
-      [user_id, nombre, tipo, talla, color, temporada, marca, material, imagen_url]
+      [user_id, nombre, tipo, categoria, talla, color, temporada, marca, material, imagen_url, publico ?? false]
     )
     return result.rows[0]
   },
@@ -27,13 +27,13 @@ const Prenda = {
     return result.rows[0]
   },
 
-  async update(id, { nombre, tipo, talla, color, temporada, marca, material, imagen_url }) {
+  async update(id, { nombre, tipo, categoria, talla, color, temporada, marca, material, imagen_url, publico }) {
     const result = await pool.query(
       `UPDATE prendas 
-       SET nombre=$1, tipo=$2, talla=$3, color=$4, temporada=$5, marca=$6, material=$7, imagen_url=$8 
-       WHERE id=$9 
+       SET nombre=$1, tipo=$2, categoria=$3, talla=$4, color=$5, temporada=$6, marca=$7, material=$8, imagen_url=$9, publico=$10
+       WHERE id=$11 
        RETURNING *`,
-      [nombre, tipo, talla, color, temporada, marca, material, imagen_url, id]
+      [nombre, tipo, categoria, talla, color, temporada, marca, material, imagen_url, publico, id]
     )
     return result.rows[0]
   },
