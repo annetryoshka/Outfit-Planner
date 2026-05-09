@@ -5,6 +5,34 @@ const wishlistController = require('../controllers/wishlistController')
 
 // Aplicar middleware de autenticación a todas las rutas
 router.use(authMiddleware)
+/**
+ * @swagger
+ * /api/wishlist/buscar:
+ *  get:
+ *      summary: Buscar productos reales en tiendas externas (Shein/AliExpress)
+ *      tags: [Wishlist]
+ *      security:
+ *          - bearerAuth: []
+ *      parameters:
+ *          - in: query
+ *            name: q
+ *            required: true
+ *            schema:
+ *              type: string
+ *            description: Palabra clave (ej. "summer dress")
+ *          - in: query
+ *            name: tienda
+ *            schema:
+ *              type: string
+ *            enum: [shein, aliexpress]
+ *            description: Tienda donde buscar
+ *      responses:
+ *          200:
+ *            description: Lista de productos encontrados
+ */
+router.get('/buscar', wishlistController.buscarProductos)
+
+router.get('/recomendaciones', wishlistController.getRecomendaciones)
 
 /**
  * @swagger
@@ -37,9 +65,11 @@ router.use(authMiddleware)
  */
 router.get('/', wishlistController.getWishlist)
 
+router.get('/:id', wishlistController.getById)
+
 /**
  * @swagger
- * /api/wishlist/:
+ * /api/wishlist:
  *   post:
  *     summary: Agregar un item a la lista de deseos
  *     tags: [Wishlist]
@@ -51,25 +81,20 @@ router.get('/', wishlistController.getWishlist)
  *         application/json:
  *           schema:
  *             type: object
- *             required: [item_id, tipo_item, nombre_item]
+ *             required: [nombre, url_tienda]
  *             properties:
- *               item_id:
+ *               nombre:
  *                 type: string
- *                 description: ID del item (prenda u outfit)
- *               tipo_item:
+ *                 description: Nombre del item
+ *              precio:
+ *                type: number
+ *                description: Precio del item (opcional)
+ *              imagen_url:
+ *                type: string
+ *                description: URL de la imagen del item (opcional)
+ *               url_tienda:
  *                 type: string
- *                 enum: [prenda, outfit]
- *                 description: Tipo de item (prenda, outfit)
- *               nombre_item:
- *                 type: string
- *                 description: Nombre descriptivo del item
- *               imagen_url:
- *                 type: string
- *                 description: URL de la imagen del item (opcional)
- *               temporada:
- *                 type: string
- *                 enum: [primavera, verano, otoño, invierno]
- *                 description: Temporada recomendada para el item (opcional)
+ *                 description: URL de la tienda donde se encuentra el item
  *     responses:
  *       201:
  *         description: Item agregado exitosamente
@@ -99,8 +124,8 @@ router.post('/', wishlistController.addToWishlist)
  *         description: ID del item a eliminar
  *     responses:
  *       200:
- *         description: Item eliminado exitosamente
- *       401:
+ *         description: Producto eliminado exitosamente
+ *       403:
  *         description: No autorizado o no tienes permiso
  *       404:
  *         description: Item no encontrado
@@ -135,48 +160,5 @@ router.delete('/:id', wishlistController.removeFromWishlist)
  *         description: Error en el servidor
  */
 router.post('/:id/mover-armario', wishlistController.moverAlArmario)
-
-/**
- * @swagger
- * /api/wishlist/recomendaciones:
- *   get:
- *     summary: Obtener recomendaciones de items de la wishlist basadas en clima/IA
- *     tags: [Wishlist]
- *     security:
- *       - bearerAuth: []
- *     responses:
- *       200:
- *         description: Recomendaciones generadas exitosamente
- *         content:
- *           application/json:
- *             schema:
- *               type: object
- *               properties:
- *                 message:
- *                   type: string
- *                 total_items_wishlist:
- *                   type: number
- *                 data:
- *                   type: array
- *                   items:
- *                     type: object
- *                     properties:
- *                       id:
- *                         type: string
- *                       nombre_item:
- *                         type: string
- *                       razon_recomendacion:
- *                         type: string
- *                       prioridad:
- *                         type: string
- *                         enum: [alta, media, baja]
- *                       nota:
- *                         type: string
- *       401:
- *         description: No autorizado
- *       500:
- *         description: Error en el servidor
- */
-router.get('/recomendaciones', wishlistController.getRecomendaciones)
 
 module.exports = router

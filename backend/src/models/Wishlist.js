@@ -1,36 +1,21 @@
 const pool = require('../config/database')
 
 const Wishlist = {
-  async create({ usuario_id, item_id, tipo_item, nombre_item, imagen_url, temporada }) {
+  async create({ user_id, nombre, imagen_url, precio, url_tienda }) {
     const result = await pool.query(
-      `INSERT INTO wishlist (usuario_id, item_id, tipo_item, nombre_item, imagen_url, temporada, created_at) 
-       VALUES ($1, $2, $3, $4, $5, $6, NOW()) 
+      `INSERT INTO wishlist (user_id, nombre, imagen_url, precio, url_tienda, created_at) 
+       VALUES ($1, $2, $3, $4, $5, NOW()) 
        RETURNING *`,
-      [usuario_id, item_id, tipo_item, nombre_item, imagen_url, temporada]
+      [user_id, nombre, imagen_url, precio, url_tienda]
     )
     return result.rows[0]
   },
 
-  async findByUserId(usuario_id, filters = {}) {
-    let query = `SELECT * FROM wishlist WHERE usuario_id = $1`
-    const params = [usuario_id]
-    let paramIndex = 2
-
-    if (filters.tipo_item) {
-      query += ` AND tipo_item = $${paramIndex}`
-      params.push(filters.tipo_item)
-      paramIndex++
-    }
-
-    if (filters.temporada) {
-      query += ` AND temporada = $${paramIndex}`
-      params.push(filters.temporada)
-      paramIndex++
-    }
-
-    query += ` ORDER BY created_at DESC`
-
-    const result = await pool.query(query, params)
+  async findByUserId(user_id) {
+    const result = await pool.query(
+      `SELECT * FROM wishlist WHERE user_id = $1 ORDER BY created_at DESC`,
+      [user_id]
+    )
     return result.rows
   },
 
@@ -42,18 +27,18 @@ const Wishlist = {
     return result.rows[0]
   },
 
-  async delete(id, usuario_id) {
+  async delete(id, user_id) {
     const result = await pool.query(
-      'DELETE FROM wishlist WHERE id = $1 AND usuario_id = $2 RETURNING *',
-      [id, usuario_id]
+      'DELETE FROM wishlist WHERE id = $1 AND user_id = $2 RETURNING *',
+      [id, user_id]
     )
     return result.rows[0]
   },
 
-  async exists(usuario_id, item_id, tipo_item) {
+  async exists(user_id, url_tienda) {
     const result = await pool.query(
-      'SELECT * FROM wishlist WHERE usuario_id = $1 AND item_id = $2 AND tipo_item = $3',
-      [usuario_id, item_id, tipo_item]
+      'SELECT * FROM wishlist WHERE user_id = $1 AND url_tienda = $2',
+      [user_id, url_tienda]
     )
     return result.rows[0]
   }

@@ -1,12 +1,13 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Masonry from 'react-masonry-css'
-import { Plus, ShoppingBag, ExternalLink, Search, X, Send } from 'lucide-react'
+import { ShoppingBag, ExternalLink, Search, X, Send } from 'lucide-react'
 import logo3 from '../assets/logo3.png'
 import flowerNormal from '../assets/flower2.png'
 import flowerHover from '../assets/flower1.png'
 import asistenteService from '../services/asistenteService'
 import climaService from '../services/climaService'
+import prendaService from '../services/prendaService'
 
 const HomePage = () => {
   const navigate = useNavigate()
@@ -21,6 +22,31 @@ const HomePage = () => {
       .then(data => setClima(data))
       .catch(() => {})
       .finally(() => setLoadingClima(false))
+  }, [])
+
+  const [prendas, setPrendas] = useState([])
+  const [loadingPrendas, setLoadingPrendas] = useState(true)
+  const [prendasMensaje, setPrendasMensaje] = useState(null)
+
+  useEffect(() => {
+    const token = localStorage.getItem('token')
+    if (!token) {
+      setLoadingPrendas(false)
+      setPrendasMensaje('login')
+      return
+    }
+    prendaService
+      .obtenerTodas()
+      .then((data) => {
+        setPrendas(Array.isArray(data) ? data : [])
+        setPrendasMensaje(null)
+      })
+      .catch((err) => {
+        setPrendas([])
+        if (err.response?.status === 401) setPrendasMensaje('login')
+        else setPrendasMensaje('error')
+      })
+      .finally(() => setLoadingPrendas(false))
   }, [])
   const [chatAbierto, setChatAbierto] = useState(false)
   const [mensajes, setMensajes] = useState([
@@ -58,29 +84,6 @@ const HomePage = () => {
       enviarMensaje()
     }
   }
-
-  const mockItems = [
-    { id: 1, type: 'image', url: 'https://picsum.photos/400/300?random=1' },
-    { id: 2, type: 'image', url: 'https://picsum.photos/400/500?random=2' },
-    { id: 3, type: 'image', url: 'https://picsum.photos/400/400?random=3' },
-    { id: 4, type: 'image', url: 'https://picsum.photos/400/600?random=4' },
-    { id: 5, type: 'image', url: 'https://picsum.photos/400/350?random=5' },
-    { id: 6, type: 'image', url: 'https://picsum.photos/400/450?random=6' },
-    { id: 7, type: 'image', url: 'https://picsum.photos/400/550?random=7' },
-    { id: 8, type: 'image', url: 'https://picsum.photos/400/380?random=8' },
-    { id: 9, type: 'image', url: 'https://picsum.photos/400/520?random=9' },
-    { id: 10, type: 'image', url: 'https://picsum.photos/400/420?random=10' },
-    { id: 11, type: 'image', url: 'https://picsum.photos/400/480?random=11' },
-    { id: 12, type: 'image', url: 'https://picsum.photos/400/360?random=12' },
-    { id: 13, type: 'image', url: 'https://picsum.photos/400/540?random=13' },
-    { id: 14, type: 'image', url: 'https://picsum.photos/400/440?random=14' },
-    { id: 15, type: 'image', url: 'https://picsum.photos/400/500?random=15' },
-    { id: 16, type: 'image', url: 'https://picsum.photos/400/320?random=16' },
-    { id: 17, type: 'image', url: 'https://picsum.photos/400/580?random=17' },
-    { id: 18, type: 'image', url: 'https://picsum.photos/400/460?random=18' },
-    { id: 19, type: 'image', url: 'https://picsum.photos/400/390?random=19' },
-    { id: 20, type: 'image', url: 'https://picsum.photos/400/510?random=20' },
-  ]
 
   const tabs = [
     { id: 'todos', label: 'Todos' },
@@ -152,13 +155,47 @@ const HomePage = () => {
             </div>
           </div>
         )}
+        {activeTab === 'todos' && loadingPrendas && (
+          <p className="text-center text-gray-600 py-12">Cargando tu armario…</p>
+        )}
+        {activeTab === 'todos' && !loadingPrendas && prendasMensaje === 'login' && (
+          <div className="text-center py-12 text-gray-700">
+            <p className="mb-4">Inicia sesión para ver las prendas de tu armario.</p>
+            <button
+              type="button"
+              onClick={() => navigate('/login')}
+              className="px-6 py-3 rounded-2xl bg-[#9f8aef] text-white font-medium hover:opacity-90"
+            >
+              Ir a iniciar sesión
+            </button>
+          </div>
+        )}
+        {activeTab === 'todos' && !loadingPrendas && prendasMensaje === 'error' && (
+          <p className="text-center text-red-600 py-12">No se pudieron cargar las prendas. Revisa que el servidor esté en marcha.</p>
+        )}
+        {activeTab === 'todos' && !loadingPrendas && !prendasMensaje && prendas.length === 0 && (
+          <div className="text-center py-12 text-gray-700">
+            <p className="mb-4">Aún no tienes prendas. ¡Añade la primera!</p>
+            <button
+              type="button"
+              onClick={() => navigate('/añadir-prenda')}
+              className="px-6 py-3 rounded-2xl bg-[#79d063] text-white font-medium hover:opacity-90"
+            >
+              Añadir prenda
+            </button>
+          </div>
+        )}
+        {activeTab !== 'todos' && (
+          <p className="text-center text-gray-600 py-12">Esta sección estará disponible pronto.</p>
+        )}
+        {activeTab === 'todos' && !loadingPrendas && !prendasMensaje && prendas.length > 0 && (
         <Masonry breakpointCols={breakpointColumnsObj} className="flex gap-6" columnClassName="flex-1">
-          {mockItems.map((item) => (
+          {prendas.map((item) => (
             <div key={item.id} className="mb-6 break-inside-avoid">
               <div className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group"
                 onClick={() => navigate(`/prenda/${item.id}`)}>
                 <div className="relative overflow-hidden">
-                  <img src={item.url} alt="Prenda de moda" className="w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                  <img src={item.imagen_url} alt={item.nombre || 'Prenda'} className="w-full object-cover transition-transform duration-500 group-hover:scale-105" />
                   <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
                   <button onClick={(e) => e.stopPropagation()}
                     className="absolute top-4 right-4 bg-[#79d063] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-[#79d063]/90">
@@ -169,6 +206,7 @@ const HomePage = () => {
             </div>
           ))}
         </Masonry>
+        )}
       </main>
 
       {/* Chat Modal */}

@@ -1,35 +1,38 @@
 import React, { useState, useRef } from 'react'
 import { ArrowLeft, Upload, Sparkles, Save, X, ChevronDown } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
+import prendaService from '../services/prendaService'
 
 const AddPrenda = () => {
   const navigate = useNavigate()
   const fileInputRef = useRef(null)
   const [isDragging, setIsDragging] = useState(false)
   const [imagePreview, setImagePreview] = useState(null)
-  const [removeBackground, setRemoveBackground] = useState(false)
-  const [openSelect, setOpenSelect] = useState(null)
+  const [imageFile, setImageFile] = useState(null)
+  const [removeBackground, setRemoveBackground] = useState(true)
+  const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(null)
   
   // Campos del formulario basados en el análisis del backend
   const [formData, setFormData] = useState({
     nombre: '',
+    tipo: '',
     categoria: '',
     color: '',
     talla: '',
     temporada: '',
     marca: '',
     material: '',
-    ocasion: '',
     es_publico: false
   })
 
   // Opciones para los selects
+  const tipos = ['Superior', 'Inferior', 'Calzado', 'Accesorio', 'Otros']
   const categorias = ['Camisa', 'Pantalón', 'Vestido', 'Abrigo', 'Falda', 'Blusa', 'Jeans', 'Chaquetas']
   const colores = ['Negro', 'Blanco', 'Gris', 'Azul', 'Rojo', 'Verde', 'Beige', 'Marrón', 'Rosa']
   const tallas = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
   const temporadas = ['Primavera', 'Verano', 'Otoño', 'Invierno']
   const materiales = ['Algodón', 'Lana', 'Seda', 'Lino', 'Poliéster', 'Denim', 'Cuero']
-  const ocasiones = ['Casual', 'Formal', 'Deportivo', 'Fiesta', 'Trabajo', 'Playa']
 
   const handleDragOver = (e) => {
     e.preventDefault()
@@ -52,6 +55,7 @@ const AddPrenda = () => {
 
   const handleFileSelect = (file) => {
     if (file && file.type.startsWith('image/')) {
+      setImageFile(file)
       const reader = new FileReader()
       reader.onload = (e) => {
         setImagePreview(e.target.result)
@@ -120,22 +124,44 @@ const CustomSelect = ({ name, value, onChange, options, placeholder, required })
   )
 }
 
-const handleSubmit = (e) => {
+const handleSubmit = async (e) => {
     e.preventDefault()
-    // Aquí conectaríamos con la API del backend
-    console.log('Datos del formulario:', formData)
-    console.log('Imagen:', imagePreview)
-    console.log('Quitar fondo:', removeBackground)
-    
-    // Mock: Simular guardado exitoso
-    alert('Prenda guardada exitosamente en tu armario')
-    navigate('/')
+    setSaveError(null)
+    if (!imageFile) {
+      setSaveError('Selecciona una imagen de la prenda.')
+      return
+    }
+    if (!localStorage.getItem('token')) {
+      setSaveError('Inicia sesión para guardar prendas.')
+      return
+    }
+    const fd = new FormData()
+    fd.append('imagen', imageFile)
+    fd.append('nombre', formData.nombre.trim())
+    fd.append('tipo', formData.tipo)
+    fd.append('categoria', formData.categoria)
+    fd.append('talla', formData.talla)
+    fd.append('color', formData.color)
+    fd.append('temporada', formData.temporada)
+    fd.append('marca', formData.marca || '')
+    fd.append('material', formData.material || '')
+    fd.append('publico', formData.es_publico ? 'true' : 'false')
+    fd.append('quitar_fondo', removeBackground ? 'true' : 'false')
+
+    setSaving(true)
+    try {
+      await prendaService.crear(fd)
+      navigate('/')
+    } catch (err) {
+      const msg = err.response?.data?.message || err.response?.data?.error || err.message
+      setSaveError(typeof msg === 'string' ? msg : 'No se pudo guardar la prenda.')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleRemoveBackground = () => {
     setRemoveBackground(!removeBackground)
-    // Mock: Simular procesamiento con IA
-    console.log('Procesando eliminación de fondo con IA...')
   }
 
   return (
@@ -191,6 +217,7 @@ const handleSubmit = (e) => {
                     onClick={(e) => {
                       e.stopPropagation()
                       setImagePreview(null)
+                      setImageFile(null)
                     }}
                     className="absolute top-2 right-2 w-8 h-8 bg-white border-2 border-[#f6ccfa] text-[#9f8aef] hover:bg-[#f6ccfa]/20 rounded-full flex items-center justify-center shadow-lg transition-all duration-200"
                   >
@@ -220,14 +247,22 @@ const handleSubmit = (e) => {
               `}
             >
               <Sparkles className="w-5 h-5" />
-               Quitar Fondo (IA)
+               {removeBackground ? 'Quitar fondo al guardar (IA)' : 'Guardar imagen sin quitar fondo'}
             </button>
+            <p className="text-xs text-gray-600 text-center px-2">
+              La eliminación de fondo con remove.bg se aplica en el servidor al pulsar Guardar.
+            </p>
           </div>
         </div>
 
         {/* Columna Derecha - Formulario */}
         <div className="flex-1">
           <form onSubmit={handleSubmit} className="space-y-4">
+            {saveError && (
+              <div className="rounded-xl border-2 border-red-200 bg-red-50 px-4 py-3 text-sm text-red-800">
+                {saveError}
+              </div>
+            )}
             <div className="grid grid-cols-2 gap-4">
               {/* Fila 1 - Nombre (Ancho completo) */}
               <div className="col-span-2">
@@ -286,7 +321,7 @@ const handleSubmit = (e) => {
                 options={temporadas.map(temp => ({ value: temp.toLowerCase(), label: temp }))}
               />
 
-              {/* Fila 4 - Material | Ocasión */}
+              {/* Fila 4 - Material | Tipo (p. ej. superior / inferior — campo del backend) */}
               <CustomSelect
                 name="material"
                 value={formData.material}
@@ -296,11 +331,12 @@ const handleSubmit = (e) => {
               />
 
               <CustomSelect
-                name="ocasion"
-                value={formData.ocasion}
+                name="tipo"
+                value={formData.tipo}
                 onChange={handleInputChange}
-                placeholder="Ocasión"
-                options={ocasiones.map(ocasion => ({ value: ocasion.toLowerCase(), label: ocasion }))}
+                required
+                placeholder="Tipo de prenda"
+                options={tipos.map((t) => ({ value: t.toLowerCase(), label: t }))}
               />
 
               {/* Fila 5 - Marca (Ancho completo) */}
@@ -345,10 +381,11 @@ const handleSubmit = (e) => {
             {/* Botón de Guardar */}
             <button
               type="submit"
-              className="w-full py-5 bg-[#79d063] text-[#ffffff] rounded-xl font-semibold text-lg hover:bg-[#79d063]/90 transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-[1.02]"
+              disabled={saving}
+              className="w-full py-5 bg-[#79d063] text-[#ffffff] rounded-xl font-semibold text-lg hover:bg-[#79d063]/90 transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-60 disabled:transform-none"
             >
               <Save className="w-6 h-6" />
-              Guardar Prenda en mi Armario
+              {saving ? 'Guardando…' : 'Guardar Prenda en mi Armario'}
             </button>
           </form>
         </div>

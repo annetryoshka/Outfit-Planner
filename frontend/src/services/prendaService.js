@@ -8,6 +8,11 @@ const prendaService = {
   async obtenerPorId(id) {
     const res = await api.get(`/prendas/${id}`)
     return res.data
+  },
+  /** @param {FormData} formData — campo archivo: `imagen`, resto como en POST /api/prendas */
+  async crear(formData) {
+    const res = await api.post('/prendas', formData)
+    return res.data
   }
 }
 

@@ -9,34 +9,45 @@ const prendaController = {
         return res.status(400).json({ message: 'Se requiere una imagen de la prenda' });
       }
       
-      const { nombre, tipo, categoria, talla, color, temporada, marca, material, publico } = req.body
+      const { nombre, tipo: tipoRaw, categoria, talla, color, temporada, marca, material, publico, quitar_fondo } = req.body
+      const tipo = tipoRaw || categoria || ''
+      const debeQuitarFondo = quitar_fondo !== 'false' && quitar_fondo !== false
 
-      console.log("Removiendo fondo...");
-      const imagenSinFondo = await removeBG(req.file.buffer);
-      console.log("Resultado removeBG:", imagenSinFondo);
-      const nombreArchivo = `prenda_${req.usuario.id}_${Date.now()}`;
+      const nombreArchivo = `prenda_${req.usuario.id}_${Date.now()}`
+      let urlFinal = null
 
-      let urlFinal = null;
-
-      if (imagenSinFondo) {
-        console.log("Subiendo a Supabase Storage...");
-        urlFinal = await uploadToStorage(
-          imagenSinFondo, 
-          nombreArchivo, 
-          'prendas', 
-          req.usuario.id,
-          'image/png'
-        );  
+      if (debeQuitarFondo) {
+        console.log('Removiendo fondo...')
+        const imagenSinFondo = await removeBG(req.file.buffer)
+        console.log('Resultado removeBG:', imagenSinFondo ? 'ok' : 'falló o null')
+        if (imagenSinFondo) {
+          console.log('Subiendo a Supabase Storage (PNG sin fondo)...')
+          urlFinal = await uploadToStorage(
+            imagenSinFondo,
+            nombreArchivo,
+            'prendas',
+            req.usuario.id,
+            'image/png'
+          )
+        } else {
+          console.log('RemoveBG falló, subiendo imagen original...')
+          urlFinal = await uploadToStorage(
+            req.file.buffer,
+            nombreArchivo,
+            'prendas',
+            req.usuario.id,
+            req.file.mimetype
+          )
+        }
       } else {
-        // Si removeBG falla, subir la imagen original del usuario
-        console.log("RemoveBG falló, subiendo imagen original...");
+        console.log('Omitiendo removeBG (preferencia del usuario), subiendo original...')
         urlFinal = await uploadToStorage(
           req.file.buffer,
           nombreArchivo,
           'prendas',
           req.usuario.id,
           req.file.mimetype
-        );
+        )
       }
       if (!urlFinal){
         return res.status(500).json({ message: 'Error al subir la imagen' });
@@ -47,7 +58,7 @@ const prendaController = {
         user_id: req.usuario.id,
         nombre,
         tipo,
-        categoria,
+        categoria: categoria || tipo,
         talla,
         color,
         temporada,

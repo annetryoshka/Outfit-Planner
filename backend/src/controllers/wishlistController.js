@@ -1,20 +1,13 @@
 const Wishlist = require('../models/Wishlist')
+const { buscarProductos } = require('../services/storeService')
 
 const wishlistController = {
   async getWishlist(req, res) {
-    try {
-      const usuario_id = req.usuario.id
-      const { tipo_item, temporada } = req.query
-      
-      const filters = {}
-      if (tipo_item) filters.tipo_item = tipo_item
-      if (temporada) filters.temporada = temporada
-      
-      const wishlist = await Wishlist.findByUserId(usuario_id, filters)
+    try {      
+      const wishlist = await Wishlist.findByUserId(req.usuario.id)
       
       res.status(200).json({ 
         message: 'Lista de deseos obtenida exitosamente',
-        filters_aplicados: filters,
         data: wishlist 
       })
     } catch (error) {
@@ -25,43 +18,82 @@ const wishlistController = {
     }
   },
 
+  async getById(req, res) {
+    try {
+      const item = await Wishlist.findById(req.params.id)
+      if (!item) {
+        return res.status(404).json({ message: 'Item no encontrado' })
+      }
+      if (item.user_id !== req.usuario.id) {
+        return res.status(403).json({ message: 'No autorizado' })
+      }
+      res.status(200).json({ message: 'OK', data: item })
+    } catch (error) {
+      res.status(500).json({ message: 'Error en el servidor', error: error.message })
+    }
+  },
+
+  async buscarProductos(req, res) {
+    try {
+      const { q, categoria } = req.query
+
+      const productos = await buscarProductos(q || '', categoria || '')
+
+      if (productos.length === 0) {
+        return res.status(200).json({
+          message: 'No se encontraron productos con esa búsqueda',
+          data: []
+        })
+      }
+
+      res.status(200).json({
+        total: productos.length,
+        data: productos
+      })
+
+    } catch (error) {
+      res.status(500).json({
+        message: 'Error buscando productos',
+        error: error.message
+      })
+    }
+  },
+
   async addToWishlist(req, res) {
     try {
-      const usuario_id = req.usuario.id
-      const { item_id, tipo_item, nombre_item, imagen_url, temporada } = req.body
+      const { nombre, imagen_url, precio, url_tienda } = req.body
 
-      // Validar campos requeridos
-      if (!item_id || !tipo_item || !nombre_item) {
-        return res.status(400).json({ 
-          message: 'Faltan campos requeridos: item_id, tipo_item, nombre_item' 
+      if (!nombre || !url_tienda) {
+        return res.status(400).json({
+          message: 'nombre y url_tienda son requeridos'
         })
       }
 
-      // Verificar si el item ya existe en la wishlist
-      const itemExists = await Wishlist.exists(usuario_id, item_id, tipo_item)
-      if (itemExists) {
-        return res.status(400).json({ 
-          message: 'Este item ya está en tu lista de deseos' 
+      // Verificar si ya está guardado
+      const yaExiste = await Wishlist.exists(req.usuario.id, url_tienda)
+      if (yaExiste) {
+        return res.status(400).json({
+          message: 'Este producto ya está en tu wishlist'
         })
       }
 
-      const wishlistItem = await Wishlist.create({
-        usuario_id,
-        item_id,
-        tipo_item,
-        nombre_item,
+      const item = await Wishlist.create({
+        user_id: req.usuario.id,
+        nombre,
         imagen_url,
-        temporada
+        precio,
+        url_tienda
       })
 
-      res.status(201).json({ 
-        message: 'Item agregado a la lista de deseos exitosamente',
-        data: wishlistItem 
+      res.status(201).json({
+        message: 'Producto guardado en wishlist',
+        data: item
       })
+
     } catch (error) {
-      res.status(500).json({ 
-        message: 'Error en el servidor', 
-        error: error.message 
+      res.status(500).json({
+        message: 'Error guardando en wishlist',
+        error: error.message
       })
     }
   },
@@ -79,7 +111,7 @@ const wishlistController = {
         })
       }
 
-      if (wishlistItem.usuario_id !== usuario_id) {
+      if (wishlistItem.user_id !== usuario_id) {
         return res.status(401).json({ 
           message: 'No tienes permiso para mover este item' 
         })
@@ -151,34 +183,18 @@ const wishlistController = {
 
   async removeFromWishlist(req, res) {
     try {
-      const usuario_id = req.usuario.id
-      const { id } = req.params
-
-      // Verificar si el item existe y pertenece al usuario
-      const wishlistItem = await Wishlist.findById(id)
-      if (!wishlistItem) {
-        return res.status(404).json({ 
-          message: 'Item no encontrado en la lista de deseos' 
-        })
+      const item = await Wishlist.findById(req.params.id)
+      if (!item) {
+        return res.status(404).json({ message: 'Item no encontrado' })
+      }
+      if (item.user_id !== req.usuario.id) {
+        return res.status(403).json({ message: 'No tienes permiso para eliminar este item' })
       }
 
-      if (wishlistItem.usuario_id !== usuario_id) {
-        return res.status(401).json({ 
-          message: 'No tienes permiso para eliminar este item' 
-        })
-      }
-
-      const deletedItem = await Wishlist.delete(id, usuario_id)
-      
-      res.status(200).json({ 
-        message: 'Item eliminado de la lista de deseos exitosamente',
-        data: deletedItem 
-      })
+      await Wishlist.delete(req.params.id, req.usuario.id)
+      res.status(200).json({ message: 'Producto eliminado de wishlist' })
     } catch (error) {
-      res.status(500).json({ 
-        message: 'Error en el servidor', 
-        error: error.message 
-      })
+      res.status(500).json({ message: 'Error en el servidor', error: error.message })
     }
   }
 }

@@ -21,7 +21,8 @@ export default function DashboardPage() {
     ]).then(([prendas, outfits, wishlist]) => {
       const p = prendas.data
       const o = outfits.data
-      const w = wishlist.data
+      const wBody = wishlist.data
+      const w = Array.isArray(wBody?.data) ? wBody.data : (Array.isArray(wBody) ? wBody : [])
 
       const colores = {}
       p.forEach(pr => { if (pr.color) colores[pr.color] = (colores[pr.color] || 0) + 1 })
