@@ -27,7 +27,7 @@ app.use('/api/outfits', outfitRoutes)
 app.use('/api/clima', climaRoutes)
 app.use('/api/asistente', asistenteRoutes)
 app.use('/api/wishlist', wishlistRoutes)
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(specs))
+app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs))
 
 //ruta extra de prueba :vv
 app.get('/', (req, res) => {

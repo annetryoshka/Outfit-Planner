@@ -11,6 +11,9 @@ import PrendaDetail from './pages/PrendaDetail'
 import WishDetail from './pages/WishDetail'
 import ProtectedRoute from './components/Layout/ProtectedRoute'
 import ScrollToTop from './components/ScrollToTop'
+import CalendarioPage from './pages/CalendarioPage'
+import LienzoPage from './pages/LienzoPage'
+import DashboardPage from './pages/DashboardPage'
 
 function AppContent() {
   const location = useLocation()
@@ -31,6 +34,9 @@ function AppContent() {
           <Route path="/wishdetail/:id" element={<WishDetail />} />
           <Route path="/login" element={<HomePage />} />
           <Route path="/registro" element={<HomePage />} />
+          <Route path="/calendario" element={<CalendarioPage />} />
+          <Route path="/lienzo/:id" element={<LienzoPage />} />
+          <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
         </Routes>
       </div>
 

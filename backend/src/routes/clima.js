@@ -24,7 +24,7 @@ router.use(authMiddleware)
  *       500:
  *         description: Ciudad no encontrada
  */
-router.get('/:ciudad', climaController.obtenerClima)
+router.get('/coordenadas/outfit', climaController.outfitPorCoordenadas)
 
 /**
  * @swagger
@@ -45,6 +45,8 @@ router.get('/:ciudad', climaController.obtenerClima)
  *       500:
  *         description: Ciudad no encontrada
  */
+router.get('/outfit-inteligente', climaController.outfitInteligente)
+router.get('/:ciudad', climaController.obtenerClima)
 router.get('/:ciudad/outfit', climaController.outfitPorClima)
 
 module.exports = router
