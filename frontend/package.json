@@ -12,9 +12,12 @@
   "dependencies": {
     "@supabase/supabase-js": "^2.105.4",
     "axios": "^1.15.1",
+    "dayjs": "^1.11.20",
+    "fabric": "^7.3.1",
     "lucide-react": "^1.14.0",
     "multer": "^2.1.1",
     "react": "^19.2.5",
+    "react-calendar": "^6.0.1",
     "react-dom": "^19.2.5",
     "react-masonry-css": "^1.0.16",
     "react-router-dom": "^6.30.3"

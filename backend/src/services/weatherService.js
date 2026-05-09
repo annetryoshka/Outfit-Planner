@@ -10,24 +10,30 @@ const clasificarClima = (temp) => {
 
 const getClima = async (ciudad) => {
   const url = `https://api.openweathermap.org/data/2.5/weather?q=${ciudad}&appid=${process.env.OPENWEATHER_API_KEY}&units=metric&lang=es`
-  
   const response = await fetch(url)
   const data = await response.json()
-
-  if (data.cod !== 200) {
-    throw new Error('Ciudad no encontrada')
-  }
-
+  if (data.cod !== 200) throw new Error('Ciudad no encontrada')
   const temp = data.main.temp
-  const descripcion = data.weather[0].description
-  const clasificacion = clasificarClima(temp)
-
   return {
     ciudad,
     temperatura: Math.round(temp),
-    descripcion,
-    clasificacion
+    descripcion: data.weather[0].description,
+    clasificacion: clasificarClima(temp)
   }
 }
 
-module.exports = { getClima }
+const getClimaPorCoordenadas = async (lat, lon) => {
+  const url = `https://api.openweathermap.org/data/2.5/weather?lat=${lat}&lon=${lon}&appid=${process.env.OPENWEATHER_API_KEY}&units=metric&lang=es`
+  const response = await fetch(url)
+  const data = await response.json()
+  if (data.cod !== 200) throw new Error('No se pudo obtener el clima')
+  const temp = data.main.temp
+  return {
+    ciudad: data.name,
+    temperatura: Math.round(temp),
+    descripcion: data.weather[0].description,
+    clasificacion: clasificarClima(temp)
+  }
+}
+
+module.exports = { getClima, getClimaPorCoordenadas }
