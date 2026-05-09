@@ -1,12 +1,10 @@
 import api from './api';
-
 const authService = {
   login: async (credentials) => {
     try {
       const response = await api.post('/auth/login', credentials);
       if (response.data.token) {
         localStorage.setItem('token', response.data.token);
-        // Asumiendo que el backend devuelve datos del usuario
         if (response.data.usuario) {
           localStorage.setItem('usuario', JSON.stringify(response.data.usuario));
         }
@@ -25,17 +23,18 @@ const authService = {
       throw error.response?.data || error.message;
     }
   },
-  
+
   logout: () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('user');
+    localStorage.removeItem('usuario'); 
   },
 
   updateUser: async (userData) => {
     try {
       const response = await api.put('/auth/perfil', userData);
-      if (response.data.user) {
-        localStorage.setItem('user', JSON.stringify(response.data.user));
+      const updatedUser = response.data.usuario || response.data.user;
+      if (updatedUser) {
+        localStorage.setItem('usuario', JSON.stringify(updatedUser)); 
       }
       return response.data;
     } catch (error) {

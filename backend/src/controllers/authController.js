@@ -7,17 +7,14 @@ const authController = {
     try {
       const { nombre, apellido, email, password } = req.body
 
-      //verificar si usuario existe o ne
       const usuarioExiste = await User.findByEmail(email)
       if (usuarioExiste) {
         return res.status(400).json({ message: 'El email ya está registrado' })
       }
 
-      //encriptar password
       const salt = await bcrypt.genSalt(10)
       const passwordEncriptada = await bcrypt.hash(password, salt)
 
-      //crear usuario
       const usuario = await User.create({
         nombre,
         apellido,
@@ -25,7 +22,6 @@ const authController = {
         password: passwordEncriptada
       })
 
-      //generar token gaa
       const token = jwt.sign(
         { id: usuario.id },
         process.env.JWT_SECRET,
@@ -43,19 +39,16 @@ const authController = {
     try {
       const { email, password } = req.body
 
-      //buscar usuario
       const usuario = await User.findByEmail(email)
       if (!usuario) {
         return res.status(400).json({ message: 'Credenciales incorrectas' })
       }
 
-      //verificar contraseña
       const passwordValida = await bcrypt.compare(password, usuario.password)
       if (!passwordValida) {
         return res.status(400).json({ message: 'Credenciales incorrectas' })
       }
 
-      //generar token
       const token = jwt.sign(
         { id: usuario.id },
         process.env.JWT_SECRET,
@@ -68,7 +61,7 @@ const authController = {
     } catch (error) {
       res.status(500).json({ message: 'Error en el servidor', error: error.message })
     }
-  },  
+  },
 
   async actualizarPerfil(req, res) {
     try {
