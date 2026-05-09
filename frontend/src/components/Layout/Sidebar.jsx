@@ -14,7 +14,7 @@ const Sidebar = () => {
   ]
 
   return (
-    <div className="fixed left-0 top-0 w-20 bg-[#c2e1f9] h-screen flex flex-col items-center pt-8 pb-8 gap-4 z-50">
+    <div className="fixed left-0 top-0 w-20 bg-[#c2e1f9] h-screen flex flex-col items-center pt-8 pb-8 gap-4 z-[60]">
       {/* Navegación Vertical */}
       <nav className="flex flex-col gap-4">
         {menuItems.map((item) => {
@@ -29,7 +29,7 @@ const Sidebar = () => {
                   const paths = {
                     home: '/',
                     wishlist: '/wishlist',
-                    explore: '/explore',
+                    explore: '/wishlist?tab=explorar',
                     calendar: '/calendar'
                   }
                   if (paths[item.id]) navigate(paths[item.id])

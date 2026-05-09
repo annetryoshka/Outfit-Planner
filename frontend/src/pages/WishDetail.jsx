@@ -4,10 +4,11 @@ import { Search, Heart, MessageCircle, Upload, MoreHorizontal } from 'lucide-rea
 import Masonry from 'react-masonry-css'
 import logo3 from '../assets/logo3.png'
 
-const PrendaDetail = () => {
+const WishDetail = () => {
   const navigate = useNavigate()
   const location = useLocation()
-  const isFromWishlist = location.search.includes('from=wishlist')
+  const searchParams = new URLSearchParams(location.search)
+  const fromParam = searchParams.get('from')
   
   // Mock data para la prenda principal
   const prendaData = {
@@ -76,14 +77,8 @@ const PrendaDetail = () => {
         {/* Bloque Izquierdo (col-span-2): Panel + Masonry */}
         <div className="col-span-2">
           
-          {/* Panel de Información (Súper Pin) */}
-          <div className={`
-            rounded-[32px] shadow-[0_1px_20px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col mb-6
-            ${isFromWishlist 
-              ? 'bg-gradient-to-b from-[#f6ccfa] from-5% via-[#ffffff] via-20% to-[#ffffff]' 
-              : 'bg-gradient-to-b from-[#fafbad] from-5% via-[#ffffff] via-20% to-[#ffffff]'
-            }
-          `}>
+          {/* Panel de Información (Súper Pin) - Degradado Rosado para Wishlist */}
+          <div className="bg-gradient-to-b from-[#f6ccfa] from-5% via-[#ffffff] via-20% to-[#ffffff] rounded-[32px] shadow-[0_1px_20px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col mb-6">
             
             {/* Header Interno de la Tarjeta */}
             <div className="flex justify-between items-center p-6">
@@ -101,8 +96,17 @@ const PrendaDetail = () => {
                   <MoreHorizontal className="w-6 h-6 text-gray-800" />
                 </button>
               </div>
-              <button className="bg-[#79d063] text-[#ffffff] rounded-full px-6 py-3 font-bold shadow-md hover:bg-[#79d063]/90 transition-all duration-300 text-lg">
-                {isFromWishlist ? 'Guardar en Wishlist' : 'Guardar'}
+              <button className={`
+                rounded-full px-6 py-3 font-bold shadow-md transition-all duration-300 text-lg
+                ${fromParam === 'wishlist-selection' 
+                  ? 'bg-[#79d063] text-[#ffffff] hover:bg-[#79d063]/90' 
+                  : 'bg-[#79d063] text-[#ffffff] hover:bg-[#79d063]/90'
+                }
+              `}>
+                {fromParam === 'wishlist-selection' 
+                  ? 'Adquirido' 
+                  : 'Guardar en Wishlist'
+                }
               </button>
             </div>
 
@@ -121,20 +125,18 @@ const PrendaDetail = () => {
                 {prendaData.nombre}
               </h1>
               
-              {/* Enlace/Link - Solo en modo Wishlist */}
-              {isFromWishlist && (
-                <div className="mb-4">
-                  <a 
-                    href="#" 
-                    className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors text-sm"
-                  >
-                    <span>Ver producto en tienda</span>
-                    <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6m0 0h4m0 0v4m0 0h-4m6 0v4m0 0h-4" />
-                    </svg>
-                  </a>
-                </div>
-              )}
+              {/* Enlace/Link - Siempre visible en WishDetail */}
+              <div className="mb-4">
+                <a 
+                  href="#" 
+                  className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors text-sm"
+                >
+                  <span>Ver producto en tienda</span>
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6m0 0h4m0 0v4m0 0h-4m6 0v4m0 0h-4" />
+                  </svg>
+                </a>
+              </div>
               
               {/* Badges de Características */}
               <div className="flex flex-wrap gap-3">
@@ -169,8 +171,17 @@ const PrendaDetail = () => {
                     className="w-full object-cover rounded-[20px]"
                   />
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-[20px]" />
-                  <button className="absolute top-3 right-3 bg-[#79d063] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-[#79d063]/90 text-sm">
-                    Guardar
+                  <button className={`
+                    absolute top-3 right-3 font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-sm
+                    ${fromParam === 'wishlist-selection' 
+                      ? 'bg-[#79d063] text-white hover:bg-[#79d063]/90' 
+                      : 'bg-[#79d063] text-white hover:bg-[#79d063]/90'
+                    }
+                  `}>
+                    {fromParam === 'wishlist-selection' 
+                      ? 'Adquirido' 
+                      : 'Guardar en Wishlist'
+                    }
                   </button>
                 </div>
               </div>
@@ -194,8 +205,17 @@ const PrendaDetail = () => {
                     className="w-full object-cover rounded-[20px]"
                   />
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-[20px]" />
-                  <button className="absolute top-3 right-3 bg-[#79d063] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-[#79d063]/90 text-sm">
-                    Guardar
+                  <button className={`
+                    absolute top-3 right-3 font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-sm
+                    ${fromParam === 'wishlist-selection' 
+                      ? 'bg-[#79d063] text-white hover:bg-[#79d063]/90' 
+                      : 'bg-[#79d063] text-white hover:bg-[#79d063]/90'
+                    }
+                  `}>
+                    {fromParam === 'wishlist-selection' 
+                      ? 'Adquirido' 
+                      : 'Guardar en Wishlist'
+                    }
                   </button>
                 </div>
               </div>
@@ -208,4 +228,4 @@ const PrendaDetail = () => {
   )
 }
 
-export default PrendaDetail
+export default WishDetail
