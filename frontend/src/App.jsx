@@ -8,6 +8,7 @@ import WishlistPage from './pages/WishlistPage'
 import AddPrenda from './pages/AddPrenda'
 import Profile from './pages/Profile'
 import PrendaDetail from './pages/PrendaDetail'
+import WishDetail from './pages/WishDetail'
 import ProtectedRoute from './components/Layout/ProtectedRoute'
 import ScrollToTop from './components/ScrollToTop'
 
@@ -27,6 +28,7 @@ function AppContent() {
           <Route path="/añadir-prenda" element={<AddPrenda />} />
           <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/prenda/:id" element={<PrendaDetail />} />
+          <Route path="/wishdetail/:id" element={<WishDetail />} />
           <Route path="/login" element={<HomePage />} />
           <Route path="/registro" element={<HomePage />} />
         </Routes>

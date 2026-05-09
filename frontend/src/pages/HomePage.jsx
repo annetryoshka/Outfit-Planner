@@ -3,10 +3,13 @@ import { useNavigate } from 'react-router-dom'
 import Masonry from 'react-masonry-css'
 import { Plus, ShoppingBag, ExternalLink, Search } from 'lucide-react'
 import logo3 from '../assets/logo3.png'
+import flowerNormal from '../assets/flower2.png'
+import flowerHover from '../assets/flower1.png'
 
 const HomePage = () => {
   const navigate = useNavigate()
   const [activeTab, setActiveTab] = useState('todos')
+  const [isHovered, setIsHovered] = useState(false)
 
   // Datos mockeados para demo de emergencia - 20 imágenes dinámicas
   const mockItems = [
@@ -158,6 +161,41 @@ const HomePage = () => {
           ))}
         </Masonry>
       </main>
+
+      {/* Botón Flotante de IA Stylist */}
+      <div className="fixed bottom-8 right-8 z-50">
+        <div className="relative group">
+          {/* Tooltip */}
+          <div className="absolute right-full mr-4 top-1/2 -translate-y-1/2 opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none">
+            <div className="relative bg-morado text-white px-4 py-2 rounded-2xl text-sm whitespace-nowrap shadow-lg">
+              ¡Hola! Soy tu IA Stylist 
+              <div className="absolute left-full top-1/2 -translate-y-1/2 border-8 border-transparent border-l-morado"></div>
+            </div>
+          </div>
+          
+          {/* Botón con efecto sticker y giro */}
+          <button
+            onClick={() => console.log('Abriendo Chat de IA...')}
+            onMouseEnter={() => setIsHovered(true)}
+            onMouseLeave={() => setIsHovered(false)}
+            className={`
+              w-20 h-20 rounded-full shadow-lg transition-all duration-500 ease-out flex items-center justify-center
+              ${isHovered 
+                ? 'transform scale-110 rotate-12 shadow-2xl' 
+                : 'transform scale-100 rotate-0'
+              }
+            `}
+          >
+            <img
+              src={isHovered ? flowerHover : flowerNormal}
+              alt="IA Stylist"
+              className={`w-full h-full object-contain rounded-full ${
+                isHovered ? 'animate-[spin_20s_linear_infinite]' : ''
+              }`}
+            />
+          </button>
+        </div>
+      </div>
 
           </div>
   )
