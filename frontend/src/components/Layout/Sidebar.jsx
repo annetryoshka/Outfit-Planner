@@ -1,6 +1,6 @@
 import React, { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Home, Compass, Calendar, User, ShoppingBag, Plus } from 'lucide-react'
+import { Home, Compass, Calendar, User, ShoppingBag, Plus, BarChart2 } from 'lucide-react'
 
 const Sidebar = () => {
   const navigate = useNavigate()
@@ -11,6 +11,7 @@ const Sidebar = () => {
     { id: 'wishlist', icon: ShoppingBag, label: 'Wishlist' },
     { id: 'explore', icon: Compass, label: 'Explorar' },
     { id: 'calendar', icon: Calendar, label: 'Calendario' },
+    { id: 'dashboard', icon: BarChart2, label: 'Dashboard' }
   ]
 
   return (
@@ -30,7 +31,8 @@ const Sidebar = () => {
                     home: '/',
                     wishlist: '/wishlist',
                     explore: '/wishlist?tab=explorar',
-                    calendar: '/calendar'
+                    calendar: '/calendario',
+                    dashboard: '/dashboard'
                   }
                   if (paths[item.id]) navigate(paths[item.id])
                 }}

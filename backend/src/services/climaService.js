@@ -5,7 +5,6 @@ const climaService = {
     const res = await api.get(`/clima/${ciudad}`)
     return res.data
   },
-
   async outfitPorClima(ciudad) {
     const res = await api.get(`/clima/${ciudad}/outfit`)
     return res.data
