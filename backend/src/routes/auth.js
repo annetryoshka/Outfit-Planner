@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const authController = require('../controllers/authController')
 const authMiddleware = require('../middleware/auth')
+const upload = require('../middleware/multer')
 
 /**
  * @swagger
@@ -76,6 +77,7 @@ router.post('/login', authController.login)
  *                 type: string
  *               foto_perfil:
  *                 type: string
+ *                 format: binary
  *               ciudad:
  *                 type: string
  *               bio:
@@ -86,6 +88,18 @@ router.post('/login', authController.login)
  *       200:
  *         description: Perfil actualizado
  */
-router.put('/perfil', authMiddleware, authController.actualizarPerfil)
+router.put(
+  '/perfil',
+  authMiddleware,
+  (req, res, next) => {
+    upload.single('foto_perfil')(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({ message: err.message });
+      }
+      next();
+    });
+  },
+  authController.actualizarPerfil
+);
 
 module.exports = router

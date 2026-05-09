@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prendaController = require('../controllers/prendaController');
 const authMiddleware = require('../middleware/auth');
-const { route } = require('./outfits');
+const upload = require('../middleware/multer');
 
 router.use(authMiddleware);
 
@@ -15,13 +15,16 @@ router.use(authMiddleware);
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
+ *             required: [imagen]
  *             properties:
  *               nombre:
  *                 type: string
  *               tipo:
+ *                 type: string
+ *               categoria:
  *                 type: string
  *               talla:
  *                 type: string
@@ -33,15 +36,25 @@ router.use(authMiddleware);
  *                 type: string
  *               material:
  *                 type: string
- *               imagen_url:
+ *               imagen:
  *                 type: string
- *               fecha_calendario:
- *                 type: string
+ *                 format: binary
  *     responses:
  *       201:
  *         description: Prenda creada exitosamente
  */
-router.post('/', prendaController.crear)
+router.post(
+  '/',
+  (req, res, next) => {
+    upload.single('imagen')(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({ message: err.message });
+      }
+      next();
+    });
+  },
+  prendaController.crear
+);
 
 /**
  * @swagger
@@ -53,7 +66,7 @@ router.post('/', prendaController.crear)
  *       200:
  *         description: Lista de prendas
  */
-router.get('/', prendaController.obtenerMisPrendas)
+router.get('/', prendaController.obtenerMisPrendas);
 
 /**
  * @swagger
@@ -67,13 +80,14 @@ router.get('/', prendaController.obtenerMisPrendas)
  *         schema:
  *           type: string
  *         required: true
+ *         description: ID de la prenda
  *     responses:
  *       200:
  *         description: Prenda encontrada
  *       404:
  *         description: Prenda no encontrada
  */
-router.get('/:id', prendaController.obtenerPorId)
+router.get('/:id', prendaController.obtenerPorId);
 
 /**
  * @swagger
@@ -110,15 +124,13 @@ router.get('/:id', prendaController.obtenerPorId)
  *                 type: string
  *               imagen_url:
  *                 type: string
- *               fecha_calendario:
- *                 type: string
  *     responses:
  *       200:
  *         description: Prenda actualizada exitosamente
  *       404:
  *         description: Prenda no encontrada
  */
-router.put('/:id', prendaController.actualizar)
+router.put('/:id', prendaController.actualizar);
 
 /**
  * @swagger
@@ -138,6 +150,6 @@ router.put('/:id', prendaController.actualizar)
  *       404:
  *         description: Prenda no encontrada
  */
-router.delete('/:id', prendaController.eliminar)
+router.delete('/:id', prendaController.eliminar);
 
-module.exports = router
+module.exports = router;

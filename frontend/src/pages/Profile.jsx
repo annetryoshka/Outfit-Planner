@@ -70,9 +70,8 @@ const Profile = () => {
     
     console.log("Subiendo a ICONPROFILE con nombre:", fileName);
 
-    // Fíjate bien en las MAYÚSCULAS de 'ICONPROFILE'
     const { data, error: uploadError } = await supabase.storage
-      .from('ICONPROFILE') 
+      .from('iconprofile') 
       .upload(fileName, file, { 
         cacheControl: '3600',
         upsert: true 
@@ -84,7 +83,7 @@ const Profile = () => {
     }
 
     const { data: urlData } = supabase.storage
-      .from('ICONPROFILE')
+      .from('iconprofile')
       .getPublicUrl(fileName);
 
     const publicUrl = urlData.publicUrl;
