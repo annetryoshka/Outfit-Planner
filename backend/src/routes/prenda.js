@@ -24,8 +24,8 @@ router.use(authMiddleware);
  *                 type: string
  *               tipo:
  *                 type: string
- *              categoria:
- *                type: string
+ *               categoria:
+ *                 type: string
  *               talla:
  *                 type: string
  *               color:
@@ -36,7 +36,7 @@ router.use(authMiddleware);
  *                 type: string
  *               material:
  *                 type: string
- *               imagen_url:
+ *               imagen:
  *                 type: string
  *                 format: binary
  *     responses:
@@ -66,7 +66,7 @@ router.post(
  *       200:
  *         description: Lista de prendas
  */
-router.get('/', prendaController.obtenerMisPrendas)
+router.get('/', prendaController.obtenerMisPrendas);
 
 /**
  * @swagger
@@ -80,13 +80,14 @@ router.get('/', prendaController.obtenerMisPrendas)
  *         schema:
  *           type: string
  *         required: true
+ *         description: ID de la prenda
  *     responses:
  *       200:
  *         description: Prenda encontrada
  *       404:
  *         description: Prenda no encontrada
  */
-router.get('/:id', prendaController.obtenerPorId)
+router.get('/:id', prendaController.obtenerPorId);
 
 /**
  * @swagger
@@ -129,7 +130,7 @@ router.get('/:id', prendaController.obtenerPorId)
  *       404:
  *         description: Prenda no encontrada
  */
-router.put('/:id', prendaController.actualizar)
+router.put('/:id', prendaController.actualizar);
 
 /**
  * @swagger
@@ -149,6 +150,6 @@ router.put('/:id', prendaController.actualizar)
  *       404:
  *         description: Prenda no encontrada
  */
-router.delete('/:id', prendaController.eliminar)
+router.delete('/:id', prendaController.eliminar);
 
-module.exports = router
+module.exports = router;
