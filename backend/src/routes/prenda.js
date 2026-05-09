@@ -2,7 +2,7 @@ const express = require('express');
 const router = express.Router();
 const prendaController = require('../controllers/prendaController');
 const authMiddleware = require('../middleware/auth');
-const { route } = require('./outfits');
+const upload = require('../middleware/multer');
 
 router.use(authMiddleware);
 
@@ -15,14 +15,17 @@ router.use(authMiddleware);
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
+ *             required: [imagen]
  *             properties:
  *               nombre:
  *                 type: string
  *               tipo:
  *                 type: string
+ *              categoria:
+ *                type: string
  *               talla:
  *                 type: string
  *               color:
@@ -35,13 +38,23 @@ router.use(authMiddleware);
  *                 type: string
  *               imagen_url:
  *                 type: string
- *               fecha_calendario:
- *                 type: string
+ *                 format: binary
  *     responses:
  *       201:
  *         description: Prenda creada exitosamente
  */
-router.post('/', prendaController.crear)
+router.post(
+  '/',
+  (req, res, next) => {
+    upload.single('imagen')(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({ message: err.message });
+      }
+      next();
+    });
+  },
+  prendaController.crear
+);
 
 /**
  * @swagger
@@ -109,8 +122,6 @@ router.get('/:id', prendaController.obtenerPorId)
  *               material:
  *                 type: string
  *               imagen_url:
- *                 type: string
- *               fecha_calendario:
  *                 type: string
  *     responses:
  *       200:

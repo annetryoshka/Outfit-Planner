@@ -1,31 +1,60 @@
 const Prenda = require('../models/prenda');
 const { removeBG } = require('../services/removeBGservice')
-const { uploadImage } = require('../services/uploadService')
+const { uploadToStorage, deleteFromStorage } = require('../services/uploadService')
 
 const prendaController = {
   async crear(req, res) {
     try {
-      const { nombre, tipo, talla, color, temporada, marca, material, imagen_url } = req.body
+      if (!req.file) {
+        return res.status(400).json({ message: 'Se requiere una imagen de la prenda' });
+      }
+      
+      const { nombre, tipo, categoria, talla, color, temporada, marca, material, publico } = req.body
+
       console.log("Removiendo fondo...");
-      const imagenSinFondo = await removeBG(imagen_url)
-      let urlFinal = imagen_url
+      const imagenSinFondo = await removeBG(req.file.buffer);
+      console.log("Resultado removeBG:", imagenSinFondo);
+      const nombreArchivo = `prenda_${req.usuario.id}_${Date.now()}`;
+
+      let urlFinal = null;
+
       if (imagenSinFondo) {
         console.log("Subiendo a Supabase Storage...");
-        const nombreArchivo = `prenda_${req.usuario.id}_${Date.now()}`;
-        urlFinal = await uploadImage(imagenSinFondo, nombreArchivo);
-        console.log("URL final de la imagen:", urlFinal);   
+        urlFinal = await uploadToStorage(
+          imagenSinFondo, 
+          nombreArchivo, 
+          'prendas', 
+          req.usuario.id,
+          'image/png'
+        );  
+      } else {
+        // Si removeBG falla, subir la imagen original del usuario
+        console.log("RemoveBG falló, subiendo imagen original...");
+        urlFinal = await uploadToStorage(
+          req.file.buffer,
+          nombreArchivo,
+          'prendas',
+          req.usuario.id,
+          req.file.mimetype
+        );
       }
+      if (!urlFinal){
+        return res.status(500).json({ message: 'Error al subir la imagen' });
+      }
+      console.log("URL final de la imagen:", urlFinal);
     
       const prenda = await Prenda.create({
         user_id: req.usuario.id,
         nombre,
         tipo,
+        categoria,
         talla,
         color,
         temporada,
         marca,
         material,
-        imagen_url: urlFinal
+        imagen_url: urlFinal,
+        publico: publico === 'true' || publico === true 
       })
       res.status(201).json(prenda)
     } catch (error) {
@@ -60,8 +89,17 @@ const prendaController = {
   },
   async eliminar(req, res) {
     try {
-      await Prenda.delete(req.params.id)
-      res.json({ message: 'Prenda eliminada' })
+      const prenda = await Prenda.findById(req.params.id);
+      if (!prenda) return res.status(404).json({ message: 'Prenda no encontrada' });
+
+      // Eliminar imagen del bucket si existe
+      if (prenda.imagen_url) {
+        await deleteFromStorage(prenda.imagen_url, 'prendas');
+      }
+
+      // Luego eliminar de la BD
+      await Prenda.delete(req.params.id);
+      res.json({ message: 'Prenda eliminada' });
     } catch (error) {
       res.status(500).json({ message: 'Error al eliminar prenda', error: error.message })
     }
