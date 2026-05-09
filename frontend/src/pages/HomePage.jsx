@@ -7,6 +7,7 @@ import flowerNormal from '../assets/flower2.png'
 import flowerHover from '../assets/flower1.png'
 import asistenteService from '../services/asistenteService'
 import climaService from '../services/climaService'
+import prendaService from '../services/prendaService'
 
 const HomePage = () => {
   const navigate = useNavigate()
@@ -18,6 +19,9 @@ const HomePage = () => {
   const [mensajes, setMensajes] = useState([])
   const [input, setInput] = useState('')
   const [loadingChat, setLoadingChat] = useState(false)
+  const [prendas, setPrendas] = useState([])
+  const [loadingPrendas, setLoadingPrendas] = useState(true)
+  const [prendasMensaje, setPrendasMensaje] = useState(null)
   const mensajesRef = useRef(null)
 
   useEffect(() => {
@@ -29,9 +33,20 @@ const HomePage = () => {
   }, [])
 
   useEffect(() => {
-    if (mensajesRef.current) {
-      mensajesRef.current.scrollTop = mensajesRef.current.scrollHeight
+    const token = localStorage.getItem('token')
+    if (!token) {
+      setLoadingPrendas(false)
+      setPrendasMensaje('login')
+      return
     }
+    prendaService.obtenerTodas()
+      .then(data => { setPrendas(Array.isArray(data) ? data : []); setPrendasMensaje(null) })
+      .catch(err => { setPrendas([]); setPrendasMensaje(err.response?.status === 401 ? 'login' : 'error') })
+      .finally(() => setLoadingPrendas(false))
+  }, [])
+
+  useEffect(() => {
+    if (mensajesRef.current) mensajesRef.current.scrollTop = mensajesRef.current.scrollHeight
   }, [mensajes])
 
   const enviarMensaje = async (texto) => {
@@ -136,23 +151,60 @@ const HomePage = () => {
           </div>
         )}
 
-        <Masonry breakpointCols={breakpointColumnsObj} className="flex gap-6" columnClassName="flex-1">
-          {mockItems.map(item => (
-            <div key={item.id} className="mb-6 break-inside-avoid">
-              <div className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group"
-                onClick={() => navigate(`/prenda/${item.id}`)}>
-                <div className="relative overflow-hidden">
-                  <img src={item.url} alt="Prenda" className="w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                  <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                  <button onClick={e => e.stopPropagation()}
-                    className="absolute top-4 right-4 bg-[#79d063] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                    Guardar
-                  </button>
+        {/* Grid de prendas */}
+        {activeTab === 'todos' && loadingPrendas && (
+          <p className="text-center text-gray-500 py-12">Cargando tu armario…</p>
+        )}
+        {activeTab === 'todos' && !loadingPrendas && prendasMensaje === 'login' && (
+          <div className="text-center py-12">
+            <p className="text-gray-600 mb-4">Inicia sesión para ver las prendas de tu armario.</p>
+            <button onClick={() => navigate('/login')}
+              className="px-6 py-3 rounded-2xl bg-[#9f8aef] text-white font-medium hover:opacity-90">
+              Iniciar sesión
+            </button>
+          </div>
+        )}
+        {activeTab === 'todos' && !loadingPrendas && prendasMensaje === 'error' && (
+          <p className="text-center text-red-500 py-12">No se pudieron cargar las prendas.</p>
+        )}
+        {activeTab === 'todos' && !loadingPrendas && !prendasMensaje && prendas.length === 0 && (
+          <div className="text-center py-12">
+            <p className="text-gray-600 mb-4">Aún no tienes prendas. ¡Añade la primera!</p>
+            <button onClick={() => navigate('/añadir-prenda')}
+              className="px-6 py-3 rounded-2xl bg-[#79d063] text-white font-medium hover:opacity-90">
+              Añadir prenda
+            </button>
+          </div>
+        )}
+        {activeTab !== 'todos' && (
+          <p className="text-center text-gray-500 py-12">Esta sección estará disponible pronto.</p>
+        )}
+        {activeTab === 'todos' && !loadingPrendas && !prendasMensaje && prendas.length > 0 && (
+          <Masonry breakpointCols={breakpointColumnsObj} className="flex gap-6" columnClassName="flex-1">
+            {prendas.map(item => (
+              <div key={item.id} className="mb-6 break-inside-avoid">
+                <div className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group"
+                  onClick={() => navigate(`/prenda/${item.id}`)}>
+                  <div className="relative overflow-hidden">
+                    {item.imagen_url
+                      ? <img src={item.imagen_url} alt={item.nombre} className="w-full object-cover transition-transform duration-500 group-hover:scale-105" />
+                      : <div className="w-full h-48 bg-gradient-to-br from-[#f6ccfa] to-[#c2e1f9] flex items-center justify-center text-4xl">👕</div>
+                    }
+                    <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
+                    <button onClick={e => e.stopPropagation()}
+                      className="absolute top-4 right-4 bg-[#79d063] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                      Guardar
+                    </button>
+                  </div>
+                  <div className="p-3">
+                    <p className="text-sm font-medium text-gray-700 truncate">{item.nombre}</p>
+                    {item.tipo && <p className="text-xs text-gray-400 capitalize">{item.tipo}</p>}
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
-        </Masonry>
+            ))}
+          </Masonry>
+        )}
       </main>
 
       {/* Chat Modal */}
@@ -168,7 +220,6 @@ const HomePage = () => {
               <X size={18} />
             </button>
           </div>
-
           <div ref={mensajesRef} className="flex-1 overflow-y-auto p-4 flex flex-col gap-3">
             {mensajes.length === 0 ? (
               <div className="flex flex-col gap-2">
@@ -200,7 +251,6 @@ const HomePage = () => {
               </div>
             )}
           </div>
-
           <div className="px-3 py-3 border-t border-[#f6ccfa] flex gap-2 flex-shrink-0">
             <input value={input} onChange={e => setInput(e.target.value)} onKeyDown={handleKey}
               placeholder="Escribe algo..."

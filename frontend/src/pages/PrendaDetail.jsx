@@ -1,44 +1,112 @@
-import React from 'react'
-import { useNavigate, useLocation } from 'react-router-dom'
+import React, { useEffect, useState } from 'react'
+import { useNavigate, useLocation, useParams } from 'react-router-dom'
 import { Search, Heart, MessageCircle, Upload, MoreHorizontal } from 'lucide-react'
 import Masonry from 'react-masonry-css'
 import logo3 from '../assets/logo3.png'
+import prendaService from '../services/prendaService'
+
+const fmt = (s) => {
+  if (s == null || s === '') return ''
+  const t = String(s)
+  return t.charAt(0).toUpperCase() + t.slice(1)
+}
 
 const PrendaDetail = () => {
   const navigate = useNavigate()
   const location = useLocation()
+  const { id } = useParams()
   const isFromWishlist = location.search.includes('from=wishlist')
-  
-  // Mock data para la prenda principal
-  const prendaData = {
-    id: 1,
-    nombre: 'Camisa NewJeans Core',
-    categoria: 'Camisa',
-    color: 'Azul',
-    temporada: 'Primavera',
-    ocasion: 'Casual',
-    imagen: 'https://picsum.photos/600/800?random=999'
-  }
 
-  // Datos de prueba para prendas relacionadas
-  const prendasRelacionadas = [
-    { id: 1, url: 'https://picsum.photos/300/400?random=1' },
-    { id: 2, url: 'https://picsum.photos/300/350?random=2' },
-    { id: 3, url: 'https://picsum.photos/300/450?random=3' },
-    { id: 4, url: 'https://picsum.photos/300/380?random=4' },
-    { id: 5, url: 'https://picsum.photos/300/420?random=5' },
-    { id: 6, url: 'https://picsum.photos/300/360?random=6' },
-    { id: 7, url: 'https://picsum.photos/300/400?random=7' },
-    { id: 8, url: 'https://picsum.photos/300/320?random=8' },
-    { id: 9, url: 'https://picsum.photos/300/300?random=9' },
-    { id: 10, url: 'https://picsum.photos/300/350?random=10' },
-    { id: 11, url: 'https://picsum.photos/300/280?random=11' },
-    { id: 12, url: 'https://picsum.photos/300/400?random=12' }
-  ]
+  const [prenda, setPrenda] = useState(null)
+  const [prendasRelacionadas, setPrendasRelacionadas] = useState([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState(null)
 
-  // Dividir prendas en dos mitades
+  useEffect(() => {
+    let cancelled = false
+    const load = async () => {
+      if (!id) {
+        setLoading(false)
+        setError('notfound')
+        return
+      }
+      setLoading(true)
+      setError(null)
+      try {
+        const [p, todas] = await Promise.all([
+          prendaService.obtenerPorId(id),
+          prendaService.obtenerTodas().catch(() => [])
+        ])
+        if (cancelled) return
+        setPrenda(p)
+        const lista = Array.isArray(todas) ? todas : []
+        const otras = lista.filter((x) => String(x.id) !== String(id)).slice(0, 12)
+        setPrendasRelacionadas(otras)
+      } catch (e) {
+        if (cancelled) return
+        if (e.response?.status === 401) setError('login')
+        else if (e.response?.status === 404) setError('notfound')
+        else setError('error')
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    }
+    load()
+    return () => {
+      cancelled = true
+    }
+  }, [id])
+
   const prendasIzquierda = prendasRelacionadas.slice(0, 6)
   const prendasDerecha = prendasRelacionadas.slice(6)
+
+  if (loading) {
+    return (
+      <div className="min-h-screen bg-[#ffffff] flex items-center justify-center text-gray-600">
+        Cargando prenda…
+      </div>
+    )
+  }
+
+  if (error === 'login') {
+    return (
+      <div className="min-h-screen bg-[#ffffff] flex flex-col items-center justify-center gap-4 text-gray-700 px-6">
+        <p>Inicia sesión para ver esta prenda.</p>
+        <button
+          type="button"
+          onClick={() => navigate('/login')}
+          className="px-6 py-3 rounded-full bg-[#9f8aef] text-white font-medium"
+        >
+          Ir a iniciar sesión
+        </button>
+      </div>
+    )
+  }
+
+  if (error || !prenda) {
+    return (
+      <div className="min-h-screen bg-[#ffffff] flex flex-col items-center justify-center gap-4 text-gray-700 px-6">
+        <p>{error === 'notfound' ? 'No encontramos esa prenda.' : 'No se pudo cargar la prenda.'}</p>
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="px-6 py-3 rounded-full bg-[#f6ccfa] text-gray-900 font-medium"
+        >
+          Volver al inicio
+        </button>
+      </div>
+    )
+  }
+
+  const badges = [
+    fmt(prenda.categoria),
+    fmt(prenda.tipo),
+    fmt(prenda.color),
+    fmt(prenda.temporada),
+    prenda.talla ? `Talla ${prenda.talla}` : '',
+    fmt(prenda.material),
+    prenda.marca ? fmt(prenda.marca) : ''
+  ].filter(Boolean)
 
   return (
     <div className="min-h-screen bg-[#ffffff]">
@@ -109,8 +177,8 @@ const PrendaDetail = () => {
             {/* Contenedor de Imagen */}
             <div className="px-6 pb-2 flex justify-center">
               <img
-                src={prendaData.imagen}
-                alt={prendaData.nombre}
+                src={prenda.imagen_url}
+                alt={prenda.nombre || 'Prenda'}
                 className="w-full rounded-[24px] object-cover max-h-[65vh]"
               />
             </div>
@@ -118,7 +186,7 @@ const PrendaDetail = () => {
             {/* Información de la Prenda */}
             <div className="px-6 pb-8 pt-2">
               <h1 className="text-3xl font-bold text-gray-900 mb-5">
-                {prendaData.nombre}
+                {prenda.nombre}
               </h1>
               
               {/* Enlace/Link - Solo en modo Wishlist */}
@@ -138,18 +206,14 @@ const PrendaDetail = () => {
               
               {/* Badges de Características */}
               <div className="flex flex-wrap gap-3">
-                <span className="bg-[#ffffff] border border-[#f6ccfa] text-gray-700 px-5 py-2 rounded-full text-sm font-bold shadow-[inset_0_0_10px_rgba(246,204,250,0.3)]">
-                  {prendaData.categoria}
-                </span>
-                <span className="bg-[#ffffff] border border-[#f6ccfa] text-gray-700 px-5 py-2 rounded-full text-sm font-bold shadow-[inset_0_0_10px_rgba(246,204,250,0.3)]">
-                  {prendaData.color}
-                </span>
-                <span className="bg-[#ffffff] border border-[#f6ccfa] text-gray-700 px-5 py-2 rounded-full text-sm font-bold shadow-[inset_0_0_10px_rgba(246,204,250,0.3)]">
-                  {prendaData.temporada}
-                </span>
-                <span className="bg-[#ffffff] border border-[#f6ccfa] text-gray-700 px-5 py-2 rounded-full text-sm font-bold shadow-[inset_0_0_10px_rgba(246,204,250,0.3)]">
-                  {prendaData.ocasion}
-                </span>
+                {badges.map((text, i) => (
+                  <span
+                    key={`${i}-${text}`}
+                    className="bg-[#ffffff] border border-[#f6ccfa] text-gray-700 px-5 py-2 rounded-full text-sm font-bold shadow-[inset_0_0_10px_rgba(246,204,250,0.3)]"
+                  >
+                    {text}
+                  </span>
+                ))}
               </div>
             </div>
           </div>
@@ -162,10 +226,16 @@ const PrendaDetail = () => {
           >
             {prendasIzquierda.map((item) => (
               <div key={item.id} className="mb-4 break-inside-avoid">
-                <div className="bg-white rounded-[20px] overflow-hidden cursor-pointer group relative">
+                <div
+                  className="bg-white rounded-[20px] overflow-hidden cursor-pointer group relative"
+                  onClick={() => navigate(`/prenda/${item.id}`)}
+                  onKeyDown={(e) => e.key === 'Enter' && navigate(`/prenda/${item.id}`)}
+                  role="button"
+                  tabIndex={0}
+                >
                   <img
-                    src={item.url}
-                    alt="Prenda relacionada"
+                    src={item.imagen_url}
+                    alt={item.nombre || 'Prenda relacionada'}
                     className="w-full object-cover rounded-[20px]"
                   />
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-[20px]" />
@@ -187,10 +257,16 @@ const PrendaDetail = () => {
           >
             {prendasDerecha.map((item) => (
               <div key={item.id} className="mb-4 break-inside-avoid">
-                <div className="bg-white rounded-[20px] overflow-hidden cursor-pointer group relative">
+                <div
+                  className="bg-white rounded-[20px] overflow-hidden cursor-pointer group relative"
+                  onClick={() => navigate(`/prenda/${item.id}`)}
+                  onKeyDown={(e) => e.key === 'Enter' && navigate(`/prenda/${item.id}`)}
+                  role="button"
+                  tabIndex={0}
+                >
                   <img
-                    src={item.url}
-                    alt="Prenda relacionada"
+                    src={item.imagen_url}
+                    alt={item.nombre || 'Prenda relacionada'}
                     className="w-full object-cover rounded-[20px]"
                   />
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-[20px]" />
