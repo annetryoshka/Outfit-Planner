@@ -2,8 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import { supabase } from '../services/supabaseClient';
-import { User, MapPin, Mail, Calendar, Lock, Globe, Camera, LogOut, ShoppingBag, ExternalLink, Search } from 'lucide-react';
+import { User, MapPin, Mail, Calendar, Lock, Globe, Camera, LogOut, ShoppingBag, ExternalLink, Search, Plus, Shirt } from 'lucide-react';
 import logo3 from '../assets/logo3.png';
+import prendaService from '../services/prendaService';
+import outfitService from '../services/outfitService';
 
 const Profile = () => {
   const [user, setUser] = useState(null);
@@ -12,6 +14,10 @@ const Profile = () => {
   const [loading, setLoading] = useState(false);
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
   const [activeTab, setActiveTab] = useState('todos');
+  const [armarioTab, setArmarioTab] = useState('armario');
+  const [prendas, setPrendas] = useState([]);
+  const [outfits, setOutfits] = useState([]);
+  const [wardrobeLoading, setWardrobeLoading] = useState(false);
   const fileInputRef = useRef(null);
   const navigate = useNavigate();
 
@@ -35,6 +41,27 @@ const Profile = () => {
       setFormData(currentUser);
     }
   }, [navigate]);
+
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    setWardrobeLoading(true);
+    Promise.all([
+      prendaService.obtenerTodas().catch(() => []),
+      outfitService.obtenerTodos().catch(() => []),
+    ])
+      .then(([p, o]) => {
+        if (cancelled) return;
+        setPrendas(Array.isArray(p) ? p : []);
+        setOutfits(Array.isArray(o) ? o : []);
+      })
+      .finally(() => {
+        if (!cancelled) setWardrobeLoading(false);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [user?.id]);
 
   const handleLogout = () => {
     authService.logout();
@@ -174,7 +201,7 @@ const Profile = () => {
       </header>
 
       <main className="p-8 bg-gradient-to-b from-amarillo from-5% via-blanco via-50% to-amarillo to-95% bg-fixed min-h-screen">
-        <div className="max-w-4xl mx-auto">
+        <div className="max-w-6xl mx-auto">
           <div className="bg-blanco rounded-3xl shadow-sm overflow-hidden">
 
             <div className="h-36 bg-gradient-to-r from-rosado to-celeste relative">
@@ -321,13 +348,139 @@ const Profile = () => {
               )}
 
               <div className="mt-10 border-t border-rosado/30 pt-8">
-                <h3 className="text-lg font-bold text-morado mb-4 text-center">Mi Armario Virtual</h3>
-                <div className="grid grid-cols-3 gap-4">
-                  {[1, 2, 3].map((i) => (
-                    <div key={i} className="aspect-square bg-rosado/10 rounded-3xl border-2 border-dashed border-rosado/30 flex items-center justify-center group hover:bg-rosado/20 hover:border-morado/30 transition-all duration-300 cursor-pointer">
-                      <Camera className="w-8 h-8 text-morado/30 group-hover:scale-110 transition-transform duration-300" />
-                    </div>
+                <div className="flex flex-wrap items-end gap-6 border-b border-gray-200">
+                  {[
+                    { id: 'armario', label: 'Mi Armario Virtual' },
+                    { id: 'outfits', label: 'Outfits' },
+                    { id: 'pruebas', label: 'Pruebas' },
+                  ].map((tab) => (
+                    <button
+                      key={tab.id}
+                      type="button"
+                      onClick={() => setArmarioTab(tab.id)}
+                      className={`pb-3 text-base font-semibold transition-colors border-b-[3px] -mb-px ${
+                        armarioTab === tab.id
+                          ? 'text-gray-900 border-gray-900'
+                          : 'text-gray-500 border-transparent hover:text-gray-800'
+                      }`}
+                    >
+                      {tab.label}
+                    </button>
                   ))}
+                </div>
+
+                <div className="pt-6 min-h-[200px]">
+                  {armarioTab === 'armario' && (
+                    <>
+                      <div className="flex justify-end mb-4">
+                        <button
+                          type="button"
+                          onClick={() => navigate('/añadir-prenda')}
+                          className="inline-flex items-center gap-2 rounded-full bg-verde text-blanco px-5 py-2.5 text-sm font-bold shadow-md hover:bg-verde/90 transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Añadir prenda
+                        </button>
+                      </div>
+                      {wardrobeLoading ? (
+                        <p className="text-center text-gray-500 text-sm py-12">Cargando tu armario…</p>
+                      ) : prendas.length === 0 ? (
+                        <div className="rounded-3xl border-2 border-dashed border-rosado/40 bg-rosado/10 py-16 px-6 text-center">
+                          <Shirt className="w-12 h-12 text-morado/40 mx-auto mb-3" />
+                          <p className="text-gray-600 text-sm mb-4">Aún no tienes prendas en tu armario virtual.</p>
+                          <button
+                            type="button"
+                            onClick={() => navigate('/añadir-prenda')}
+                            className="text-morado font-semibold text-sm hover:underline"
+                          >
+                            Añadir tu primera prenda
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                          {prendas.map((p) => (
+                            <button
+                              key={p.id}
+                              type="button"
+                              onClick={() => navigate(`/prenda/${p.id}`)}
+                              className="group text-left rounded-3xl overflow-hidden bg-white shadow-sm border border-gray-100 hover:shadow-md hover:border-morado/30 transition-all"
+                            >
+                              <div className="aspect-square bg-gray-50">
+                                <img
+                                  src={p.imagen_url}
+                                  alt={p.nombre || 'Prenda'}
+                                  className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                                />
+                              </div>
+                              <p className="px-3 py-2 text-xs font-medium text-gray-800 line-clamp-2">{p.nombre}</p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {armarioTab === 'outfits' && (
+                    <>
+                      <div className="flex justify-end mb-4">
+                        <button
+                          type="button"
+                          onClick={() => navigate('/calendario')}
+                          className="inline-flex items-center gap-2 rounded-full bg-verde text-blanco px-5 py-2.5 text-sm font-bold shadow-md hover:bg-verde/90 transition-colors"
+                        >
+                          <Plus className="w-4 h-4" />
+                          Crear outfit
+                        </button>
+                      </div>
+                      {wardrobeLoading ? (
+                        <p className="text-center text-gray-500 text-sm py-12">Cargando outfits…</p>
+                      ) : outfits.length === 0 ? (
+                        <div className="rounded-3xl border-2 border-dashed border-rosado/40 bg-rosado/10 py-16 px-6 text-center">
+                          <p className="text-gray-600 text-sm mb-4">No tienes outfits guardados.</p>
+                          <button
+                            type="button"
+                            onClick={() => navigate('/calendario')}
+                            className="text-morado font-semibold text-sm hover:underline"
+                          >
+                            Crear uno en el calendario
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                          {outfits.map((o) => (
+                            <button
+                              key={o.id}
+                              type="button"
+                              onClick={() => navigate(`/lienzo/${o.id}`)}
+                              className="group text-left rounded-3xl overflow-hidden bg-white shadow-sm border border-gray-100 hover:shadow-md hover:border-morado/30 transition-all"
+                            >
+                              <div className="aspect-[4/5] bg-gradient-to-br from-[#f6ccfa] to-[#c2e1f9] flex items-center justify-center">
+                                {o.imagen_url ? (
+                                  <img
+                                    src={o.imagen_url}
+                                    alt={o.nombre || 'Outfit'}
+                                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
+                                  />
+                                ) : (
+                                  <span className="text-4xl" aria-hidden>👗</span>
+                                )}
+                              </div>
+                              <p className="px-3 py-2 text-xs font-medium text-gray-800 line-clamp-2">{o.nombre || 'Sin nombre'}</p>
+                            </button>
+                          ))}
+                        </div>
+                      )}
+                    </>
+                  )}
+
+                  {armarioTab === 'pruebas' && (
+                    <div className="rounded-3xl border border-gray-200 bg-white py-20 px-6 text-center">
+                      <p className="text-gray-500 text-lg font-medium">Próximamente</p>
+                      <p className="text-gray-400 text-sm mt-2 max-w-md mx-auto">
+                        Aquí podrás ver las pruebas de try-on de tus outfits. Esta sección está en preparación.
+                      </p>
+                    </div>
+                  )}
                 </div>
               </div>
             </div>

@@ -56,6 +56,19 @@ router.post(
   prendaController.crear
 );
 
+router.post(
+  '/quitar-fondo-preview',
+  (req, res, next) => {
+    upload.single('imagen')(req, res, (err) => {
+      if (err) {
+        return res.status(400).json({ message: err.message });
+      }
+      next();
+    });
+  },
+  prendaController.quitarFondoPreview
+);
+
 /**
  * @swagger
  * /api/prendas:
@@ -130,7 +143,21 @@ router.get('/:id', prendaController.obtenerPorId);
  *       404:
  *         description: Prenda no encontrada
  */
-router.put('/:id', prendaController.actualizar);
+router.put(
+  '/:id',
+  (req, res, next) => {
+    const ct = req.headers['content-type'] || ''
+    if (ct.includes('multipart/form-data')) {
+      upload.single('imagen')(req, res, (err) => {
+        if (err) return res.status(400).json({ message: err.message })
+        next()
+      })
+    } else {
+      next()
+    }
+  },
+  prendaController.actualizar
+);
 
 /**
  * @swagger

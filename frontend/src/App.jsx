@@ -29,6 +29,7 @@ function AppContent() {
           <Route path="/" element={<HomePage />} />
           <Route path="/wishlist" element={<WishlistPage />} />
           <Route path="/añadir-prenda" element={<AddPrenda />} />
+          <Route path="/editar-prenda/:id" element={<ProtectedRoute><AddPrenda /></ProtectedRoute>} />
           <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
           <Route path="/prenda/:id" element={<PrendaDetail />} />
           <Route path="/wishdetail/:id" element={<WishDetail />} />
