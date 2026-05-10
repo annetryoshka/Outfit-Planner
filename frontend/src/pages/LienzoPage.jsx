@@ -149,6 +149,9 @@ export default function LienzoPage() {
       if (outfit?.nombre) formData.append('nombre', outfit.nombre);
       if (outfit?.ocasion) formData.append('ocasion', outfit.ocasion);
       if (outfit?.es_publico !== undefined) formData.append('es_publico', outfit.es_publico);
+      if (outfit?.fecha_calendario) {
+        formData.append('fecha_calendario', outfit.fecha_calendario);
+      }
 
       await outfitService.actualizar(id, formData);
       alert('Outfit optimizado y guardado');
