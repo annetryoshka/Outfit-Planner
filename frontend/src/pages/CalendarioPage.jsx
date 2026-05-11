@@ -75,9 +75,14 @@ export default function CalendarioPage() {
   }
 
   const eliminar = async (id) => {
-    if (!confirm('¿Eliminar este outfit?')) return
-    await outfitService.eliminar(id)
-    setOutfits(prev => prev.filter(o => o.id !== id))
+    if (!confirm('¿Seguro que quieres eliminar este outfit del calendario? Esta acción no se puede deshacer.')) return
+    try {
+      await outfitService.eliminar(id)
+      setOutfits(prev => prev.filter(o => o.id !== id))
+    } catch (err) {
+      const msg = err?.response?.data?.message || err?.message || 'Error desconocido'
+      alert('No se pudo eliminar el outfit: ' + msg)
+    }
   }
 
   return (
@@ -109,6 +114,7 @@ export default function CalendarioPage() {
               {dayjs(fecha).format('dddd, D [de] MMMM')}
             </h2>
             <button
+              type="button"
               onClick={abrirCrear}
               className="flex items-center gap-2 bg-[#9f8aef] text-white px-4 py-2 rounded-full text-sm hover:bg-[#9f8aef]/80 transition-colors"
             >
@@ -142,23 +148,26 @@ export default function CalendarioPage() {
 
                   <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button
-                      onClick={() => navigate(`/lienzo/${o.id}`)}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); navigate(`/lienzo/${o.id}`) }}
                       className="w-8 h-8 bg-[#f6ccfa] rounded-full flex items-center justify-center hover:bg-[#9f8aef] hover:text-white transition-colors"
                       title="Editar en lienzo"
                     >
                       <Palette size={14} />
                     </button>
                     <button
-                      onClick={() => abrirEditar(o)}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); abrirEditar(o) }}
                       className="w-8 h-8 bg-[#f6ccfa] rounded-full flex items-center justify-center hover:bg-[#9f8aef] hover:text-white transition-colors"
                       title="Editar"
                     >
                       <Pencil size={14} />
                     </button>
                     <button
-                      onClick={() => eliminar(o.id)}
+                      type="button"
+                      onClick={(e) => { e.stopPropagation(); eliminar(o.id) }}
                       className="w-8 h-8 bg-[#f6ccfa] rounded-full flex items-center justify-center hover:bg-red-400 hover:text-white transition-colors"
-                      title="Eliminar"
+                      title="Eliminar outfit"
                     >
                       <Trash2 size={14} />
                     </button>

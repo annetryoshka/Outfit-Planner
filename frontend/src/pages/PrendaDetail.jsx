@@ -4,6 +4,7 @@ import { Search, Heart, MessageCircle, Upload, MoreHorizontal } from 'lucide-rea
 import Masonry from 'react-masonry-css'
 import logo3 from '../assets/logo3.png'
 import prendaService from '../services/prendaService'
+import authService from '../services/authService'
 
 const fmt = (s) => {
   if (s == null || s === '') return ''
@@ -98,12 +99,19 @@ const PrendaDetail = () => {
     )
   }
 
+  const currentUser = authService.getCurrentUser()
+  const puedeEditar =
+    !isFromWishlist &&
+    currentUser &&
+    prenda.user_id != null &&
+    String(prenda.user_id) === String(currentUser.id)
+
   const badges = [
     fmt(prenda.categoria),
     fmt(prenda.tipo),
     fmt(prenda.color),
     fmt(prenda.temporada),
-    prenda.talla ? `Talla ${prenda.talla}` : '',
+    prenda.talla ? `Talla ${String(prenda.talla).toUpperCase()}` : '',
     fmt(prenda.material),
     prenda.marca ? fmt(prenda.marca) : ''
   ].filter(Boolean)
@@ -169,9 +177,22 @@ const PrendaDetail = () => {
                   <MoreHorizontal className="w-6 h-6 text-gray-800" />
                 </button>
               </div>
-              <button className="bg-[#79d063] text-[#ffffff] rounded-full px-6 py-3 font-bold shadow-md hover:bg-[#79d063]/90 transition-all duration-300 text-lg">
-                {isFromWishlist ? 'Guardar en Wishlist' : 'Guardar'}
-              </button>
+              {isFromWishlist ? (
+                <button
+                  type="button"
+                  className="bg-[#79d063] text-[#ffffff] rounded-full px-6 py-3 font-bold shadow-md hover:bg-[#79d063]/90 transition-all duration-300 text-lg"
+                >
+                  Guardar en Wishlist
+                </button>
+              ) : puedeEditar ? (
+                <button
+                  type="button"
+                  onClick={() => navigate(`/editar-prenda/${prenda.id}`)}
+                  className="bg-[#79d063] text-[#ffffff] rounded-full px-6 py-3 font-bold shadow-md hover:bg-[#79d063]/90 transition-all duration-300 text-lg"
+                >
+                  Editar
+                </button>
+              ) : null}
             </div>
 
             {/* Contenedor de Imagen */}

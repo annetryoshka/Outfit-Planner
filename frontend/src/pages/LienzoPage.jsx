@@ -1,7 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import * as fabricModule from 'fabric'
-const fabric = fabricModule.fabric
+import { Canvas, FabricImage, FabricText } from 'fabric'
 import { Save, Trash2, ChevronLeft, Plus } from 'lucide-react'
 import outfitService from '../services/outfitService'
 import prendaService from '../services/prendaService'
@@ -15,16 +14,22 @@ export default function LienzoPage() {
   const [outfit, setOutfit] = useState(null)
   const [guardando, setGuardando] = useState(false)
   const [fondoColor, setFondoColor] = useState('#ffffff')
+  const fondoColorRef = useRef(fondoColor)
+  fondoColorRef.current = fondoColor
 
-  // Inicializar canvas
+  // Inicializar canvas (Fabric v7: import nombrado; la API antigua `fabric.fabric` ya no existe)
   useEffect(() => {
-    const c = new fabric.Canvas(canvasRef.current, {
+    const el = canvasRef.current
+    if (!el) return
+    const c = new Canvas(el, {
       width: 700,
       height: 500,
       backgroundColor: '#ffffff',
     })
     setCanvas(c)
-    return () => c.dispose()
+    return () => {
+      void c.dispose()
+    }
   }, [])
 
   // Cargar outfit y prendas
@@ -35,32 +40,35 @@ export default function LienzoPage() {
     prendaService.obtenerTodas().then(setPrendas).catch(() => {})
   }, [id])
 
-  // Cargar imagen guardada del outfit en el canvas
+  // Cargar imagen guardada del outfit en el canvas (solo cuando cambia la URL del outfit, no al cambiar el color de fondo)
   useEffect(() => {
-    if (canvas && outfit?.imagen_url) {
-      fabric.Image.fromURL(outfit.imagen_url, (img) => {
-        canvas.clear()
-        canvas.setBackgroundColor(fondoColor, canvas.renderAll.bind(canvas))
-        img.scaleToWidth(canvas.width)
-        canvas.add(img)
-        canvas.renderAll()
+    if (!canvas || !outfit?.canvas_data) return;
+    canvas.loadFromJSON(outfit.canvas_data)
+      .then(() => {
+        canvas.backgroundColor = fondoColorRef.current
+        canvas.requestRenderAll()
       })
-    }
-  }, [canvas, outfit])
+      .catch(err => {
+        console.error('Error al cargar canvas_data:', err);
+      })
+  }, [canvas, outfit?.canvas_data])
 
   const agregarPrenda = (prenda) => {
     if (!canvas) return
     if (prenda.imagen_url) {
-      fabric.Image.fromURL(prenda.imagen_url, (img) => {
-        img.scaleToHeight(150)
-        img.set({ left: 100, top: 100, hasControls: true })
-        canvas.add(img)
-        canvas.setActiveObject(img)
-        canvas.renderAll()
-      }, { crossOrigin: 'anonymous' })
+      FabricImage.fromURL(prenda.imagen_url, { crossOrigin: 'anonymous' })
+        .then((img) => {
+          img.scaleToHeight(150)
+          img.set({ left: 100, top: 100, hasControls: true })
+          canvas.add(img)
+          canvas.setActiveObject(img)
+          canvas.requestRenderAll()
+        })
+        .catch(() => {})
     } else {
-      const texto = new fabric.Text(prenda.nombre || 'Prenda', {
-        left: 100, top: 100,
+      const texto = new FabricText(prenda.nombre || 'Prenda', {
+        left: 100,
+        top: 100,
         fontSize: 18,
         fill: '#9f8aef',
         fontFamily: 'sans-serif',
@@ -68,7 +76,7 @@ export default function LienzoPage() {
       })
       canvas.add(texto)
       canvas.setActiveObject(texto)
-      canvas.renderAll()
+      canvas.requestRenderAll()
     }
   }
 
@@ -77,28 +85,82 @@ export default function LienzoPage() {
     const obj = canvas.getActiveObject()
     if (obj) {
       canvas.remove(obj)
-      canvas.renderAll()
+      canvas.requestRenderAll()
     }
   }
 
   const cambiarFondo = (color) => {
     setFondoColor(color)
     if (canvas) {
-      canvas.setBackgroundColor(color, canvas.renderAll.bind(canvas))
+      canvas.backgroundColor = color
+      canvas.requestRenderAll()
     }
   }
 
   const guardar = async () => {
-    if (!canvas || !id) return
-    setGuardando(true)
+    if (!canvas || !id) return;
+    setGuardando(true);
     try {
-      const dataUrl = canvas.toDataURL({ format: 'png', quality: 0.8 })
-      await outfitService.actualizar(id, { imagen_url: dataUrl })
-      alert('Outfit guardado!')
+      const jsonData = canvas.toJSON();
+      //Encontrar el área que ocupan los objetos (Bounding Box)
+      const objetos = canvas.getObjects();
+      if (objetos.length === 0) {
+        alert("El lienzo está vacío");
+        setGuardando(false);
+        return;
+      }
+
+      // Calculamos el área que encierra a todos los objetos manualmente
+      let minX = Infinity, minY = Infinity, maxX = -Infinity, maxY = -Infinity;
+
+      objetos.forEach(obj => {
+        const bound = obj.getBoundingRect();
+        if (bound.left < minX) minX = bound.left;
+        if (bound.top < minY) minY = bound.top;
+        if (bound.left + bound.width > maxX) maxX = bound.left + bound.width;
+        if (bound.top + bound.height > maxY) maxY = bound.top + bound.height;
+      });
+
+      const padding = 10;
+      const finalLeft = minX - padding;
+      const finalTop = minY - padding;
+      const finalWidth = (maxX - minX) + (padding * 2);
+      const finalHeight = (maxY - minY) + (padding * 2);
+
+      // Generar la imagen SOLO de esa área y con dimensiones reducidas
+      const dataUrl = canvas.toDataURL({
+        format: 'jpeg', // JPEG pesa mucho menos que PNG para fotos de ropa
+        quality: 0.6,   // Reducimos la calidad al 60% 
+        left: finalLeft,
+        top: finalTop,
+        width: finalWidth,
+        height: finalHeight
+      });
+
+      // El resto del proceso de conversión a Blob y FormData se mantiene igua
+      
+      const res = await fetch(dataUrl);
+      const blob = await res.blob();
+      
+      const formData = new FormData();
+      formData.append('imagen', blob, `preview_${id}.jpg`);
+      formData.append('canvas_data', JSON.stringify(jsonData));
+
+      if (outfit?.nombre) formData.append('nombre', outfit.nombre);
+      if (outfit?.ocasion) formData.append('ocasion', outfit.ocasion);
+      if (outfit?.es_publico !== undefined) formData.append('es_publico', outfit.es_publico);
+      if (outfit?.fecha_calendario) {
+        formData.append('fecha_calendario', outfit.fecha_calendario);
+      }
+
+      await outfitService.actualizar(id, formData);
+      alert('Outfit optimizado y guardado');
+      
     } catch (err) {
-      alert('Error al guardar')
+      console.error(err);
+      alert('Error al guardar los cambios FR' + (err.response?.data?.message || err.message));
     } finally {
-      setGuardando(false)
+      setGuardando(false);
     }
   }
 
@@ -109,18 +171,18 @@ export default function LienzoPage() {
 
       {/* Header */}
       <div className="bg-white border-b border-[#f6ccfa] px-6 py-3 flex items-center gap-4">
-        <button onClick={() => navigate('/calendario')}
+        <button type="button" onClick={() => navigate('/calendario')}
           className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#9f8aef] transition-colors">
           <ChevronLeft size={18} /> Volver
         </button>
         <h1 className="font-semibold text-gray-800 flex-1">
           {outfit?.nombre || 'Lienzo de Outfit'}
         </h1>
-        <button onClick={eliminarSeleccionado}
+        <button type="button" onClick={eliminarSeleccionado}
           className="flex items-center gap-2 text-sm text-red-400 hover:text-red-500 border border-red-200 px-3 py-1.5 rounded-full transition-colors">
           <Trash2 size={14} /> Eliminar
         </button>
-        <button onClick={guardar} disabled={guardando}
+        <button type="button" onClick={guardar} disabled={guardando}
           className="flex items-center gap-2 bg-[#9f8aef] text-white px-4 py-1.5 rounded-full text-sm hover:bg-[#9f8aef]/80 transition-colors disabled:opacity-50">
           <Save size={14} /> {guardando ? 'Guardando...' : 'Guardar'}
         </button>
@@ -136,7 +198,7 @@ export default function LienzoPage() {
               <p className="text-xs text-gray-400 text-center mt-8">No tienes prendas aún</p>
             ) : (
               prendas.map(p => (
-                <button key={p.id} onClick={() => agregarPrenda(p)}
+                <button type="button" key={p.id} onClick={() => agregarPrenda(p)}
                   className="flex items-center gap-3 p-2 rounded-xl hover:bg-[#f6ccfa]/40 transition-colors text-left group">
                   <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#f6ccfa] to-[#c2e1f9] flex items-center justify-center flex-shrink-0 overflow-hidden">
                     {p.imagen_url
@@ -167,7 +229,7 @@ export default function LienzoPage() {
           <p className="text-xs text-gray-400 uppercase tracking-widest mb-3">Fondo</p>
           <div className="grid grid-cols-4 gap-2">
             {coloresFondo.map(color => (
-              <button key={color} onClick={() => cambiarFondo(color)}
+              <button type="button" key={color} onClick={() => cambiarFondo(color)}
                 className={`w-8 h-8 rounded-lg border-2 transition-all ${fondoColor === color ? 'border-[#9f8aef] scale-110' : 'border-transparent hover:border-gray-300'}`}
                 style={{ background: color }}
               />

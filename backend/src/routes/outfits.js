@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const outfitController = require('../controllers/outfitController')
 const authMiddleware = require('../middleware/auth')
+const upload = require('../middleware/multer')
 
 router.use(authMiddleware)
 
@@ -14,7 +15,7 @@ router.use(authMiddleware)
  *     requestBody:
  *       required: true
  *       content:
- *         application/json:
+ *         multipart/form-data:
  *           schema:
  *             type: object
  *             properties:
@@ -24,15 +25,29 @@ router.use(authMiddleware)
  *                 type: string
  *               es_publico:
  *                 type: boolean
- *               imagen_url:
+ *               imagen:
  *                 type: string
+ *                 format: binary
  *               fecha_calendario:
+ *                 type: string
+ *               canvas_data:
+ *                 type: string
+ *               prenda_ids:
  *                 type: string
  *     responses:
  *       201:
  *         description: Outfit creado exitosamente
  */
-router.post('/', outfitController.crear)
+router.post(
+  '/',
+  (req, res, next) => {
+    upload.single('imagen')(req, res, (err) => {
+      if (err) return res.status(400).json({ message: err.message })
+      next()
+    })
+  },
+  outfitController.crear
+)
 
 /**
  * @swagger
@@ -97,11 +112,45 @@ router.get('/:id', outfitController.obtenerPorId)
  *         required: true
  *         schema:
  *           type: string
+ *    requestBody:
+ *      required: true
+ *      content:
+ *        multipart/form-data:
+ *          schema:
+ *            type: object
+ *            properties:
+ *              nombre:
+ *                type: string
+ *              ocasion:
+ *                type: string
+ *              es_publico:
+ *                type: boolean
+ *              imagen:
+ *                type: string
+ *                format: binary
+ *              fecha_calendario:
+ *                type: string
+ *              canvas_data:
+ *                type: string
  *     responses:
  *       200:
  *         description: Outfit actualizado
  */
-router.put('/:id', outfitController.actualizar)
+router.put(
+  '/:id',
+  (req, res, next) => {
+    const ct = req.headers['content-type'] || ''
+    if (ct.includes('multipart/form-data')) {
+      upload.single('imagen')(req, res, (err) => {
+        if (err) return res.status(400).json({ message: err.message })
+        next()
+      })
+    } else {
+      next()
+    }
+  },
+  outfitController.actualizar
+)
 
 /**
  * @swagger

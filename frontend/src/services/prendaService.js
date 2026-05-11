@@ -13,6 +13,30 @@ const prendaService = {
   async crear(formData) {
     const res = await api.post('/prendas', formData)
     return res.data
+  },
+  async actualizar(id, formData) {
+    const res = await api.put(`/prendas/${id}`, formData)
+    return res.data
+  },
+  /** @param {FormData} formData — solo campo `imagen`. Devuelve Blob PNG. */
+  async quitarFondoPreview(formData) {
+    const res = await api.post('/prendas/quitar-fondo-preview', formData, {
+      responseType: 'blob',
+      validateStatus: () => true
+    })
+    const ct = (res.headers['content-type'] || '').toLowerCase()
+    if (res.status === 200 && (ct.includes('image/png') || ct.includes('octet-stream'))) {
+      return res.data
+    }
+    let msg = 'No se pudo quitar el fondo.'
+    if (res.data instanceof Blob) {
+      try {
+        const t = await res.data.text()
+        const j = JSON.parse(t)
+        if (j.message) msg = j.message
+      } catch (_) { /* respuesta no JSON */ }
+    }
+    throw new Error(msg)
   }
 }
 

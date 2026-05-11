@@ -1,8 +1,12 @@
 import api from './api'
 
 const outfitService = {
-  async crear(datos) {
-    const res = await api.post('/outfits', datos)
+  async crear(formData) {
+    const res = await api.post('/outfits', formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
     return res.data
   },
 
@@ -21,13 +25,34 @@ const outfitService = {
     return res.data
   },
 
-  async actualizar(id, datos) {
-    const res = await api.put(`/outfits/${id}`, datos)
+  async actualizar(id, formData) {
+    const res = await api.put(`/outfits/${id}`, formData, {
+      headers: {
+        'Content-Type': 'multipart/form-data'
+      }
+    })
     return res.data
   },
 
   async eliminar(id) {
     const res = await api.delete(`/outfits/${id}`)
+    return res.data
+  },
+
+  async agregarPrenda(outfitId, prendaId) {
+    const res = await api.post(`/outfits/${outfitId}/prendas`, { prenda_id: prendaId })
+    return res.data
+  },
+
+  async quitarPrenda(outfitId, prendaId) {
+    const res = await api.delete(`/outfits/${outfitId}/prendas`, { 
+      data: { prenda_id: prendaId } 
+    })
+    return res.data
+  },
+
+  async probarOutfit(id) {
+    const res = await api.post(`/outfits/${id}/probar`)
     return res.data
   }
 }
