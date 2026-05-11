@@ -112,26 +112,26 @@ router.get('/:id', outfitController.obtenerPorId)
  *         required: true
  *         schema:
  *           type: string
- *    requestBody:
- *      required: true
- *      content:
- *        multipart/form-data:
- *          schema:
- *            type: object
- *            properties:
- *              nombre:
- *                type: string
- *              ocasion:
- *                type: string
- *              es_publico:
- *                type: boolean
- *              imagen:
- *                type: string
- *                format: binary
- *              fecha_calendario:
- *                type: string
- *              canvas_data:
- *                type: string
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         multipart/form-data:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               nombre:
+ *                 type: string
+ *               ocasion:
+ *                 type: string
+ *               es_publico:
+ *                 type: boolean
+ *               imagen:
+ *                 type: string
+ *                 format: binary
+ *               fecha_calendario:
+ *                 type: string
+ *               canvas_data:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Outfit actualizado

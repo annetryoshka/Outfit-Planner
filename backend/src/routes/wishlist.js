@@ -86,12 +86,12 @@ router.get('/:id', wishlistController.getById)
  *               nombre:
  *                 type: string
  *                 description: Nombre del item
- *              precio:
- *                type: number
- *                description: Precio del item (opcional)
- *              imagen_url:
- *                type: string
- *                description: URL de la imagen del item (opcional)
+ *               precio:
+ *                 type: number
+ *                 description: Precio del item (opcional)
+ *               imagen_url:
+ *                 type: string
+ *                 description: URL de la imagen del item (opcional)
  *               url_tienda:
  *                 type: string
  *                 description: URL de la tienda donde se encuentra el item
