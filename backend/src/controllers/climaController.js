@@ -76,47 +76,64 @@ const climaController = {
     }
   },
 
-  async outfitInteligente(req, res) {
+async outfitInteligente(req, res) {
   try {
     const { lat, lon } = req.query
     const pool = require('../config/database')
     const clima = await getClimaPorCoordenadas(lat, lon)
-
-    // Mapear
-    const recomendaciones = {
-      muy_frio: ['abrigo', 'outerwear', 'sueter', 'top', 'bottom'],
-      frio: ['outerwear', 'sueter', 'top', 'bottom'],
-      templado: ['top', 'bottom', 'outerwear'],
-      calido: ['top', 'bottom', 'shoes'],
-      caliente: ['top', 'bottom', 'shoes'],
-    }
-
-    const tiposRecomendados = recomendaciones[clima.clasificacion] || ['top', 'bottom']
     const user_id = req.usuario.id
 
-    const result = await pool.query(
-      `SELECT * FROM prendas WHERE user_id = $1 
-       AND (tipo = ANY($2) OR temporada = 'todo el año' OR temporada = $3)
-       LIMIT 10`,
-      [user_id, tiposRecomendados, clima.clasificacion === 'muy_frio' || clima.clasificacion === 'frio' ? 'invierno' : 'verano']
-    )
+    // Mapear clima a temporada
+    const temporadaMap = {
+      muy_frio: 'invierno',
+      frio: 'invierno',
+      templado: 'todo el año',
+      calido: 'verano',
+      caliente: 'verano'
+    }
 
-    const prendas = result.rows
+    const temporada = temporadaMap[clima.clasificacion]
+
+    // Buscar prendas del usuario por tipo
+    const tipos = ['top', 'bottom', 'outerwear', 'shoes']
     const outfit = {}
-    const tiposBase = ['top', 'bottom', 'outerwear', 'shoes']
-    tiposBase.forEach(tipo => {
-      const prenda = prendas.find(p => p.tipo === tipo)
-      if (prenda) outfit[tipo] = prenda
-    })
+
+    for (const tipo of tipos) {
+      const result = await pool.query(
+        `SELECT * FROM prendas 
+         WHERE user_id = $1 
+         AND tipo = $2 
+         AND (temporada = $3 OR temporada = 'todo el año' OR temporada IS NULL)
+         ORDER BY RANDOM()
+         LIMIT 1`,
+        [user_id, tipo, temporada]
+      )
+      if (result.rows.length > 0) {
+        outfit[tipo] = result.rows[0]
+      }
+    }
+
+    // Mensaje según clima
+    const mensajes = {
+      muy_frio: `¡Hace ${clima.temperatura}°C en ${clima.ciudad}! Abrígate mucho 🧥`,
+      frio: `Hace ${clima.temperatura}°C en ${clima.ciudad}, lleva algo de abrigo 🌬️`,
+      templado: `Clima perfecto en ${clima.ciudad}, ${clima.temperatura}°C ☀️`,
+      calido: `Hace ${clima.temperatura}°C en ${clima.ciudad}, vístete ligero 😎`,
+      caliente: `¡Mucho calor en ${clima.ciudad}! ${clima.temperatura}°C 🌡️`
+    }
+
+    const tienePrendas = Object.keys(outfit).length > 0
 
     res.json({
       clima,
-      outfit_sugerido: outfit,
-      total_prendas_encontradas: prendas.length,
-      mensaje: Object.keys(outfit).length === 0
-        ? 'No tienes prendas en tu inventario que coincidan con el clima de hoy'
-        : `Outfit sugerido para ${clima.temperatura}°C en ${clima.ciudad}`
+      outfit_del_dia: outfit,
+      mensaje: mensajes[clima.clasificacion],
+      tiene_prendas: tienePrendas,
+      consejo: tienePrendas
+        ? `Outfit armado con ${Object.keys(outfit).length} prendas de tu inventario`
+        : 'No tienes prendas en tu inventario para este clima, añade algunas!'
     })
+
   } catch (error) {
     res.status(500).json({ message: error.message })
   }

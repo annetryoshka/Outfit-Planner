@@ -3,6 +3,7 @@ const router = express.Router()
 const climaController = require('../controllers/climaController')
 const authMiddleware = require('../middleware/auth')
 
+
 router.use(authMiddleware)
 
 /**

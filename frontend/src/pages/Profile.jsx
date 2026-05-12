@@ -85,7 +85,12 @@ const Profile = () => {
   console.log("Archivo seleccionado:", file.name, "Tipo:", file.type);
 
   if (!file.type.startsWith('image/')) {
-    alert('Solo se permiten imágenes');
+    Swal.fire({
+    icon: 'error',
+    title: 'Error',
+    text: 'Sólo se permiten imágenes',
+    confirmButtonColor: '#9f8aef'
+  })
     return;
   }
 
@@ -122,11 +127,21 @@ const Profile = () => {
     setUser(updatedUser);
     setFormData(updatedUser);
     localStorage.setItem('usuario', JSON.stringify(updatedUser));
-    alert("¡Foto actualizada!");
+    Swal.fire({
+      icon: 'success',
+      title: '¡Foto actualizada!',
+      text: 'Tu foto de perfil ha sido actualizada exitosamente.',
+      confirmButtonColor: '#9f8aef'
+    });
 
   } catch (err) {
     console.error("Objeto de error completo:", err);
-    alert('Error al subir la imagen: ' + (err.message || 'Error desconocido'));
+    Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Error al subir la imagen: ' + (err.message || 'Error desconocido'),
+      confirmButtonColor: '#9f8aef'
+    });
   } finally {
     setUploadingPhoto(false);
   }
@@ -140,9 +155,19 @@ const Profile = () => {
       const result = await authService.updateUser(formData);
       setUser(result.usuario || result.user);
       setIsEditing(false);
-      alert('Perfil actualizado con éxito');
+      Swal.fire({
+        icon: 'success',
+        title: '¡Perfil actualizado!',
+        text: 'Tu perfil ha sido actualizado exitosamente.',
+        confirmButtonColor: '#9f8aef'
+      });
     } catch (err) {
-      alert('Error al actualizar: ' + (err.message || 'Error desconocido'));
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error al actualizar el perfil: ' + (err.message || 'Error desconocido'),
+        confirmButtonColor: '#9f8aef'
+      });
     } finally {
       setLoading(false);
     }

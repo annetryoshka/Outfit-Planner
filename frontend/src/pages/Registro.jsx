@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import authService from '../services/authService'
 import logo1 from '../assets/logo1.png'
+import Swal from 'sweetalert2'
 
 function Registro() {
   const [form, setForm] = useState({ 
@@ -32,7 +33,12 @@ function Registro() {
       // Enviamos solo los campos que espera el backend (nombre, email, password)
       const { confirmPassword, ...userData } = form
       await authService.register(userData)
-      alert('¡Cuenta creada con éxito! Ahora puedes iniciar sesión.')
+      Swal.fire({
+      icon: 'success',
+      title: '¡Creado con éxito!',
+      text: 'Ya puedes iniciar sesión con tu nueva cuenta.',
+      confirmButtonColor: '#9f8aef'
+    })
       navigate('/login')
     } catch (err) {
       setError(err.message || 'Error al crear la cuenta. Inténtalo de nuevo.')

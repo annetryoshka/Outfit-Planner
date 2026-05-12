@@ -21,7 +21,6 @@ const Sidebar = () => {
   const menuItems = [
     { id: 'home', icon: Home, label: 'Home' },
     { id: 'wishlist', icon: ShoppingBag, label: 'Wishlist' },
-    { id: 'explore', icon: Compass, label: 'Explorar' },
     { id: 'calendar', icon: Calendar, label: 'Calendario' },
     { id: 'dashboard', icon: BarChart2, label: 'Dashboard' }
   ]

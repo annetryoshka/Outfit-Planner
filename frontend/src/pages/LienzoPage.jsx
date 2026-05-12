@@ -105,7 +105,12 @@ export default function LienzoPage() {
       //Encontrar el área que ocupan los objetos (Bounding Box)
       const objetos = canvas.getObjects();
       if (objetos.length === 0) {
-        alert("El lienzo está vacío");
+        Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'El lienzo está vacío. Agrega prendas antes de guardar.',
+        confirmButtonColor: '#9f8aef'
+      })
         setGuardando(false);
         return;
       }
@@ -154,11 +159,21 @@ export default function LienzoPage() {
       }
 
       await outfitService.actualizar(id, formData);
-      alert('Outfit optimizado y guardado');
+      Swal.fire({
+        icon: 'success',
+        title: 'Éxito',
+        text: 'Outfit optimizado y guardado',
+        confirmButtonColor: '#9f8aef'
+      });
       
     } catch (err) {
       console.error(err);
-      alert('Error al guardar los cambios FR' + (err.response?.data?.message || err.message));
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Error al guardar los cambios: ' + (err.response?.data?.message || err.message),
+        confirmButtonColor: '#9f8aef'
+      });
     } finally {
       setGuardando(false);
     }
