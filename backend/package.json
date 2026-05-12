@@ -24,9 +24,12 @@
     "multer": "^2.1.1",
     "node-fetch": "^2.7.0",
     "openai": "^6.33.0",
+    "passport": "^0.7.0",
+    "passport-google-oauth20": "^2.0.0",
     "pg": "^8.20.0",
     "swagger-jsdoc": "^6.2.8",
-    "swagger-ui-express": "^5.0.1"
+    "swagger-ui-express": "^5.0.1",
+    "sweetalert2": "^11.26.24"
   },
   "devDependencies": {
     "@gradio/client": "^2.2.0",

@@ -60,6 +60,15 @@ const HomePage = () => {
     if (mensajesRef.current) mensajesRef.current.scrollTop = mensajesRef.current.scrollHeight
   }, [mensajes])
 
+  const [outfitIA, setOutfitIA] = useState(null)
+
+  useEffect(() => {
+    climaService.obtenerUbicacion()
+      .then(({ lat, lon }) => climaService.outfitInteligente(lat, lon))
+      .then(data => setOutfitIA(data))
+      .catch(() => {})
+  }, [])
+
   // ── Lógica del chat (Archivo 1 — sin tocar) ──
   const enviarMensaje = async (texto) => {
     const msg = texto || input
@@ -212,25 +221,57 @@ const HomePage = () => {
         <div className="flex-1 overflow-y-auto transition-all duration-500 ease-in-out">
           <main className="p-8 bg-gradient-to-b from-[#fafbad] from-5% via-white via-50% to-[#fafbad] to-95% bg-fixed min-h-full">
 
-            {/* Banner clima */}
-            {!loadingClima && clima && (
-              <div className="mb-6 bg-white rounded-2xl shadow-sm border border-[#f6ccfa] px-6 py-4 flex items-center gap-6">
-                <div className="flex flex-col">
-                  <span className="text-xs text-gray-400 uppercase tracking-widest">Clima en {clima.clima.ciudad}</span>
-                  <span className="text-2xl font-bold text-[#9f8aef]">{clima.clima.temperatura}°C</span>
-                  <span className="text-sm text-gray-500 capitalize">{clima.clima.descripcion}</span>
-                </div>
-                <div className="w-px h-12 bg-[#f6ccfa]" />
-                <div className="flex-1">
-                  <p className="text-sm font-medium text-gray-700 mb-2">{clima.sugerencia.mensaje}</p>
-                  <div className="flex flex-wrap gap-2">
-                    {clima.sugerencia.prendas.map((p, i) => (
-                      <span key={i} className="bg-[#f6ccfa]/50 text-[#9f8aef] text-xs px-3 py-1 rounded-full">{p}</span>
-                    ))}
-                  </div>
+        {/* Banners clima + outfit */}
+        <div className="flex flex-col md:flex-row gap-4 mb-6">
+
+          {/* Banner clima */}
+          {!loadingClima && clima && (
+            <div className="flex-1 bg-white rounded-2xl shadow-sm border border-[#f6ccfa] px-6 py-4 flex items-center gap-4">
+              <div className="flex flex-col flex-shrink-0">
+                <span className="text-xs text-gray-400 uppercase tracking-widest">Clima en {clima.clima.ciudad}</span>
+                <span className="text-2xl font-bold text-[#9f8aef]">{clima.clima.temperatura}°C</span>
+                <span className="text-sm text-gray-500 capitalize">{clima.clima.descripcion}</span>
+              </div>
+              <div className="w-px h-12 bg-[#f6ccfa]" />
+              <div className="flex-1">
+                <p className="text-sm font-medium text-gray-700 mb-2">{clima.sugerencia.mensaje}</p>
+                <div className="flex flex-wrap gap-2">
+                  {clima.sugerencia.prendas.map((p, i) => (
+                    <span key={i} className="bg-[#f6ccfa]/50 text-[#9f8aef] text-xs px-3 py-1 rounded-full">{p}</span>
+                  ))}
                 </div>
               </div>
-            )}
+            </div>
+          )}
+
+          {/* Banner outfit IA */}
+          {outfitIA && outfitIA.tiene_prendas && (
+            <div className="flex-1 bg-white rounded-2xl shadow-sm border border-[#f6ccfa] px-6 py-4">
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <p className="text-xs text-gray-400 uppercase tracking-widest">Outfit del día ✨</p>
+                  <p className="text-sm font-medium text-gray-700 mt-1">{outfitIA.mensaje}</p>
+                </div>
+                <span className="text-xs bg-[#f6ccfa]/50 text-[#9f8aef] px-3 py-1 rounded-full">{outfitIA.consejo}</span>
+              </div>
+              <div className="flex gap-3 flex-wrap">
+                {Object.entries(outfitIA.outfit_del_dia).map(([tipo, prenda]) => (
+                  <div key={tipo} className="flex flex-col items-center gap-1">
+                    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-[#f6ccfa] to-[#c2e1f9] flex items-center justify-center overflow-hidden">
+                      {prenda.imagen_url
+                        ? <img src={prenda.imagen_url} alt={prenda.nombre} className="w-full h-full object-cover" />
+                        : <div className="w-8 h-8 bg-[#9f8aef]/20 rounded-lg" />
+                      }
+                    </div>
+                    <p className="text-xs text-gray-600 text-center max-w-16 truncate">{prenda.nombre}</p>
+                    <span className="text-[0.6rem] text-gray-400 capitalize">{tipo}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+
+        </div>
 
             {/* Estados de prendas */}
             {activeTab === 'todos' && loadingPrendas && (

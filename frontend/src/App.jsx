@@ -14,11 +14,23 @@ import ScrollToTop from './components/ScrollToTop'
 import CalendarioPage from './pages/CalendarioPage'
 import LienzoPage from './pages/LienzoPage'
 import DashboardPage from './pages/DashboardPage'
+import { useEffect } from 'react'
 
 function AppContent() {
   const location = useLocation()
   const navigate = useNavigate()
   const isAuthPage = location.pathname === '/login' || location.pathname === '/registro'
+  useEffect(() => {
+  const params = new URLSearchParams(window.location.search)
+  const token = params.get('token')
+  const usuario = params.get('usuario')
+  
+  if (token && usuario) {
+    localStorage.setItem('token', token)
+    localStorage.setItem('usuario', usuario)
+    window.history.replaceState({}, '', '/')
+  }
+}, [])
 
   return (
     <div className="min-h-screen bg-white relative overflow-x-hidden">

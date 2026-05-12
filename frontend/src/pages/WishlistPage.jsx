@@ -100,15 +100,30 @@ const WishlistPage = () => {
   const handleFormSubmit = async (e) => {
     e.preventDefault()
     if (!localStorage.getItem('token')) {
-      alert('Inicia sesión para añadir productos a tu wishlist.')
+      Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'Inicia sesión para añadir productos a tu wishlist.',
+      confirmButtonColor: '#9f8aef'
+    })
       return
     }
     if (!formData.url?.trim() && !formData.imageFile) {
-      alert('Añade una URL o una imagen del producto.')
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Añade una URL o una imagen del producto.',
+        confirmButtonColor: '#9f8aef'
+      })
       return
     }
     if (!formData.categoria) {
-      alert('Selecciona una categoría.')
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Selecciona una categoría.',
+        confirmButtonColor: '#9f8aef'
+      })
       return
     }
 
@@ -138,7 +153,12 @@ const WishlistPage = () => {
       await loadWishlist()
       navigate('/wishlist?tab=seleccion')
     } catch (err) {
-      alert(err.response?.data?.message || 'No se pudo guardar el producto.')
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err.response?.data?.message || 'No se pudo guardar el producto.',
+        confirmButtonColor: '#9f8aef'
+      })
     } finally {
       setFormSubmitting(false)
     }
@@ -151,7 +171,12 @@ const WishlistPage = () => {
       await wishlistService.eliminar(id)
       await loadWishlist()
     } catch {
-      alert('No se pudo eliminar.')
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo eliminar el producto.',
+        confirmButtonColor: '#9f8aef'
+      })
     }
   }
 
@@ -162,14 +187,24 @@ const WishlistPage = () => {
       await wishlistService.moverAlArmario(id)
       await loadWishlist()
     } catch {
-      alert('No se pudo actualizar.')
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo actualizar.',
+        confirmButtonColor: '#9f8aef'
+      })
     }
   }
 
   const guardarProductoExplorar = async (e, p) => {
     e.stopPropagation()
     if (!localStorage.getItem('token')) {
-      alert('Inicia sesión para guardar en tu wishlist.')
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'Inicia sesión para guardar en tu wishlist.',
+        confirmButtonColor: '#9f8aef'
+      })
       return
     }
     try {
@@ -181,7 +216,12 @@ const WishlistPage = () => {
       })
       await loadWishlist()
     } catch (err) {
-      alert(err.response?.data?.message || 'No se pudo guardar.')
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: err.response?.data?.message || 'No se pudo guardar.',
+        confirmButtonColor: '#9f8aef'
+      })
     }
   }
 

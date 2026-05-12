@@ -99,7 +99,12 @@ const WishDetail = () => {
         navigate('/wishlist?tab=seleccion')
       }
     } catch (e) {
-      alert(e.response?.data?.message || 'No se pudo guardar en la wishlist.')
+      Swal.fire({
+      icon: 'error',
+      title: 'Error',
+      text: 'No se pudo guardar la wishlist: ' + (e.response?.data?.message || 'Error desconocido'),
+      confirmButtonColor: '#9f8aef'
+    })
     } finally {
       setGuardando(false)
     }
@@ -112,7 +117,12 @@ const WishDetail = () => {
       await wishlistService.moverAlArmario(id)
       navigate('/wishlist?tab=seleccion')
     } catch {
-      alert('No se pudo completar la acción.')
+      Swal.fire({
+        icon: 'error',
+        title: 'Error',
+        text: 'No se pudo completar la acción.',
+        confirmButtonColor: '#9f8aef'
+      })
     }
   }
 
