@@ -1,7 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Masonry from 'react-masonry-css'
-import { Search, X, Send, ShoppingBag, ExternalLink, Heart, Palette, Sparkles, LayoutGrid } from 'lucide-react'
+import { Search, X, Send, ShoppingBag, ExternalLink, Heart, Palette, Sparkles, LayoutGrid, Menu } from 'lucide-react'
 import logo3 from '../assets/logo3.png'
 import flowerNormal from '../assets/flower2.png'
 import flowerHover from '../assets/flower1.png'
@@ -17,6 +17,7 @@ const HomePage = () => {
   const [activeTab, setActiveTab]       = useState('todos')
   const [isHovered, setIsHovered]       = useState(false)
   const [isChatOpen, setIsChatOpen]     = useState(false)
+  const [isMenuOpen, setIsMenuOpen]     = useState(false)
 
   // ── Estados del chat (Archivo 1 — lógica sagrada) ──
   const [mensajes, setMensajes]         = useState([])
@@ -120,7 +121,8 @@ const HomePage = () => {
             <img src={logo3} alt="PinWand" className="h-full w-auto object-contain" />
           </button>
 
-          <nav className="flex gap-4 items-center flex-shrink-0">
+          {/* Desktop Navigation */}
+          <nav className="hidden md:flex gap-4 items-center flex-shrink-0">
             {tabs.map((tab) => (
               <button
                 key={tab.id}
@@ -136,8 +138,16 @@ const HomePage = () => {
             ))}
           </nav>
 
-          <div className="flex-1 ml-8">
-            <div className="relative">
+          {/* Mobile Menu Button */}
+          <button
+            onClick={() => setIsMenuOpen(!isMenuOpen)}
+            className="md:hidden flex items-center justify-center w-10 h-10 text-gray-900 hover:bg-[#f6ccfa] rounded-lg transition-colors"
+          >
+            <Menu className="w-6 h-6" />
+          </button>
+
+          <div className="hidden md:flex flex-1 ml-8">
+            <div className="relative w-full">
               <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
               <input
                 type="text"
@@ -146,6 +156,51 @@ const HomePage = () => {
               />
             </div>
           </div>
+
+          {/* Mobile Menu Sidebar */}
+          {isMenuOpen && (
+            <>
+              {/* Overlay */}
+              <div 
+                className="fixed inset-0 bg-black/50 z-40 md:hidden"
+                onClick={() => setIsMenuOpen(false)}
+              />
+              
+              {/* Mobile Menu Sidebar */}
+              <div className="fixed top-0 right-0 h-full w-64 bg-white shadow-xl z-50 md:hidden transform transition-transform duration-300 ease-in-out">
+                <div className="p-6">
+                  <div className="flex items-center justify-between mb-8">
+                    <h2 className="text-lg font-semibold text-[#9f8aef]">Menú</h2>
+                    <button
+                      onClick={() => setIsMenuOpen(false)}
+                      className="p-2 hover:bg-[#f6ccfa] rounded-lg transition-colors"
+                    >
+                      <X className="w-5 h-5 text-[#9f8aef]" />
+                    </button>
+                  </div>
+                  
+                  <nav className="flex flex-col space-y-3">
+                    {tabs.map((tab) => (
+                      <button
+                        key={tab.id}
+                        onClick={() => {
+                          setActiveTab(tab.id)
+                          setIsMenuOpen(false)
+                        }}
+                        className={`w-full text-left px-4 py-3 font-medium transition-all duration-300 rounded-xl ${
+                          activeTab === tab.id
+                            ? 'bg-[#9f8aef] text-white'
+                            : 'text-gray-900 hover:bg-[#f6ccfa]'
+                        }`}
+                      >
+                        {tab.label}
+                      </button>
+                    ))}
+                  </nav>
+                </div>
+              </div>
+            </>
+          )}
 
         </div>
       </header>
