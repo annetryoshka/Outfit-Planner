@@ -1,10 +1,22 @@
 import React, { useState } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useLocation } from 'react-router-dom'
 import { Home, Compass, Calendar, User, ShoppingBag, Plus, BarChart2 } from 'lucide-react'
 
 const Sidebar = () => {
   const navigate = useNavigate()
-  const [activeItem, setActiveItem] = useState('home')
+  const location = useLocation()
+
+  const activeItem = (() => {
+    if (location.pathname === '/') return 'home'
+    if (location.pathname === '/calendario') return 'calendar'
+    if (location.pathname === '/dashboard') return 'dashboard'
+    if (location.pathname === '/perfil') return 'profile'
+    if (location.pathname.startsWith('/wishlist')) {
+      const tab = new URLSearchParams(location.search).get('tab')
+      return tab === 'explorar' ? 'explore' : 'wishlist'
+    }
+    return ''
+  })()
 
   const menuItems = [
     { id: 'home', icon: Home, label: 'Home' },
@@ -26,10 +38,9 @@ const Sidebar = () => {
             <div className="relative group" key={item.id}>
               <button
                 onClick={() => {
-                  setActiveItem(item.id)
                   const paths = {
                     home: '/',
-                    wishlist: '/wishlist',
+                    wishlist: '/wishlist?tab=seleccion',
                     explore: '/wishlist?tab=explorar',
                     calendar: '/calendario',
                     dashboard: '/dashboard'
@@ -90,7 +101,6 @@ const Sidebar = () => {
       <div className="relative group">
         <button 
           onClick={() => {
-            setActiveItem('profile')
             navigate('/perfil')
           }}
           className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 ${
