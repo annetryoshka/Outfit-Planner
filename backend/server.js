@@ -10,6 +10,8 @@ const asistenteRoutes = require('./src/routes/asistente')
 const prendaRoutes = require('./src/routes/prenda')
 const wishlistRoutes = require('./src/routes/wishlist')
 const { specs, swaggerUi } = require('./src/config/swagger')
+const passport = require('passport')
+require('./src/config/passport')
 
 dotenv.config()
 
@@ -28,6 +30,7 @@ app.use('/api/clima', climaRoutes)
 app.use('/api/asistente', asistenteRoutes)
 app.use('/api/wishlist', wishlistRoutes)
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs))
+app.use(passport.initialize())
 
 //ruta extra de prueba :vv
 app.get('/', (req, res) => {

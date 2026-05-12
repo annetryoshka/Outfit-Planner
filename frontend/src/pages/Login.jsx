@@ -87,6 +87,19 @@ function Login() {
           </button>
         </form>
 
+        <div className="flex items-center gap-2 my-4">
+        <div className="flex-1 h-px bg-gray-200" />
+        <span className="text-xs text-gray-400">o</span>
+        <div className="flex-1 h-px bg-gray-200" />
+      </div>
+      <a
+        href="http://localhost:3000/api/auth/google"
+        className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all duration-300"
+      >
+        <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4" />
+        Continuar con Google
+      </a>
+
         <p className="text-center text-sm text-gray-400 mt-6">
           ¿No tienes cuenta?{' '}
           <Link to="/registro" className="text-celeste font-medium hover:underline">

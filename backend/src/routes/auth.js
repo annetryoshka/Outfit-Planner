@@ -102,4 +102,44 @@ router.put(
   authController.actualizarPerfil
 );
 
+const passport = require('passport')
+const jwt = require('jsonwebtoken')
+require('../config/passport')
+
+/**
+ * @swagger
+ * /api/auth/google:
+ *   get:
+ *     summary: Iniciar sesión con Google
+ *     tags: [Auth]
+ *     security: []
+ *     responses:
+ *       302:
+ *         description: Redirige a Google
+ */
+router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }))
+
+/**
+ * @swagger
+ * /api/auth/google/callback:
+ *   get:
+ *     summary: Callback de Google OAuth
+ *     tags: [Auth]
+ *     security: []
+ *     responses:
+ *       302:
+ *         description: Redirige al frontend con token
+ */
+router.get('/google/callback',
+  passport.authenticate('google', { failureRedirect: 'http://localhost:5173/login', session: false }),
+  (req, res) => {
+    const token = jwt.sign(
+      { id: req.user.id },
+      process.env.JWT_SECRET,
+      { expiresIn: process.env.JWT_EXPIRES_IN }
+    )
+    res.redirect(`http://localhost:5173/?token=${token}&usuario=${encodeURIComponent(JSON.stringify(req.user))}`)
+  }
+);
+
 module.exports = router
