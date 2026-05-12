@@ -5,9 +5,11 @@ const { uploadToStorage, deleteFromStorage } = require('../services/uploadServic
 const outfitController = {
   async crear(req, res) {
   try {
-    const { nombre, ocasion, es_publico, fecha_calendario, canvas_data, prenda_ids } = req.body
+    console.log('📦 req.body recibido:', req.body)
+    console.log('📦 Content-Type:', req.headers['content-type'])
+    const { nombre, ocasion, es_publico, fecha_calendario, canvas_data, prenda_ids, es_clon } = req.body
 
-    let imagen_url = null
+    let imagen_url = req.body.imagen_url || null  // ← tomar imagen_url del body si viene
 
     if (req.file) {
       const nombreArchivo = `outfit_${req.usuario.id}_${Date.now()}`
@@ -41,7 +43,8 @@ const outfitController = {
       es_publico: es_publico === 'true' || es_publico === true,
       imagen_url,
       fecha_calendario: fecha_calendario || null,
-      canvas_data: canvasDataParsed
+      canvas_data: canvasDataParsed,
+      es_clon: es_clon === true || es_clon === 'true'
     })
 
     // Relacionar prendas si vienen

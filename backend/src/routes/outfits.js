@@ -41,10 +41,15 @@ router.use(authMiddleware)
 router.post(
   '/',
   (req, res, next) => {
-    upload.single('imagen')(req, res, (err) => {
-      if (err) return res.status(400).json({ message: err.message })
+    const ct = req.headers['content-type'] || ''
+    if (ct.includes('multipart/form-data')) {
+      upload.single('imagen')(req, res, (err) => {
+        if (err) return res.status(400).json({ message: err.message })
+        next()
+      })
+    } else {
       next()
-    })
+    }
   },
   outfitController.crear
 )
