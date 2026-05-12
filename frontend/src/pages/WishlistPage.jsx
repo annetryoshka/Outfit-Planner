@@ -51,8 +51,11 @@ const WishlistPage = () => {
   }, [loadWishlist])
 
   useEffect(() => {
-    if (tabParam) setActiveTab(tabParam)
-  }, [tabParam])
+    const params = new URLSearchParams(location.search)
+    const tab = params.get('tab')
+    if (tab) setActiveTab(tab)
+    else setActiveTab('seleccion')
+  }, [location.search])
 
   useEffect(() => {
     if (activeTab !== 'explorar') return
