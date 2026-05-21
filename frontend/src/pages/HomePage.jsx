@@ -30,12 +30,15 @@ const HomePage = () => {
   const [clima, setClima]               = useState(null)
   const [loadingClima, setLoadingClima] = useState(true)
 
-  // ── Estados de prendas (Archivo 1) ──
-  const [prendas, setPrendas]           = useState([])
-  const [loadingPrendas, setLoadingPrendas] = useState(true)
-  const [prendasMensaje, setPrendasMensaje] = useState(null)
+  // ── Estados de prendas ──
+  // prendasPublicas: feed global (todos los usuarios) — pestaña 'Todos'
+  // misPrendas:      solo las del usuario logueado   — pestaña 'Mis Prendas'
+  const [prendasPublicas, setPrendasPublicas]   = useState([])
+  const [misPrendas, setMisPrendas]             = useState([])
+  const [loadingPrendas, setLoadingPrendas]     = useState(true)
+  const [prendasMensaje, setPrendasMensaje]     = useState(null)
 
-  // ── Effects (Archivo 1 — sin tocar) ──
+  // ── Effects ──
   useEffect(() => {
     climaService.obtenerUbicacion()
       .then(({ lat, lon }) => climaService.outfitPorCoordenadas(lat, lon))
@@ -45,6 +48,12 @@ const HomePage = () => {
   }, [])
 
   useEffect(() => {
+    // Feed global: no requiere token (endpoint /publicas es abierto)
+    prendaService.obtenerPublicas()
+      .then(data => setPrendasPublicas(Array.isArray(data) ? data : []))
+      .catch(() => setPrendasPublicas([]))
+
+    // Mis prendas: solo si hay token
     const token = localStorage.getItem('token')
     if (!token) {
       setLoadingPrendas(false)
@@ -52,8 +61,8 @@ const HomePage = () => {
       return
     }
     prendaService.obtenerTodas()
-      .then(data => { setPrendas(Array.isArray(data) ? data : []); setPrendasMensaje(null) })
-      .catch(err => { setPrendas([]); setPrendasMensaje(err.response?.status === 401 ? 'login' : 'error') })
+      .then(data => { setMisPrendas(Array.isArray(data) ? data : []); setPrendasMensaje(null) })
+      .catch(err => { setMisPrendas([]); setPrendasMensaje(err.response?.status === 401 ? 'login' : 'error') })
       .finally(() => setLoadingPrendas(false))
   }, [])
 
@@ -128,29 +137,10 @@ const HomePage = () => {
   // ── Estado de búsqueda ──
   const [busqueda, setBusqueda] = useState('')
 
-  // ── ID del usuario logueado (decodificado del JWT) ──
-  const miUserId = (() => {
-    try {
-      const token = localStorage.getItem('token')
-      if (!token) return null
-      // jwt-decode v3: jwtDecode(token) / v4: jwtDecode(token)
-      // Si usas: import { jwtDecode } from 'jwt-decode'  →  jwtDecode(token)
-      // Si usas: import jwtDecode from 'jwt-decode'      →  jwtDecode(token)
-      const payload = JSON.parse(atob(token.split('.')[1]))
-      // El campo en tu JWT puede ser 'id', 'sub', 'user_id', etc.
-      // Revisá con console.log(payload) si no coincide
-      return payload.id ?? payload.sub ?? payload.user_id ?? null
-    } catch {
-      return null
-    }
-  })()
-
-  // Filtrado por pestana activa:
-  // 'todos'       -> TODAS las prendas publicas de todos los usuarios (feed global tipo Pinterest)
-  // 'mis-prendas' -> todas las prendas del usuario logueado, publicas y privadas
-  const prendasPorTab = activeTab === 'todos'
-    ? prendas.filter(item => item.publico === true)
-    : prendas.filter(item => item.user_id === miUserId)
+  // Seleccion de fuente segun pestana activa
+  // 'todos'       -> prendasPublicas (viene de GET /prendas/publicas — todos los usuarios)
+  // 'mis-prendas' -> misPrendas     (viene de GET /prendas          — solo el usuario logueado)
+  const prendasPorTab = activeTab === 'todos' ? prendasPublicas : misPrendas
 
   // Busqueda local sobre nombre, tipo, color, marca y categoria
   const prendasMostradas = busqueda.trim() === ''
@@ -415,8 +405,8 @@ const HomePage = () => {
             {/* ── Galería con Masonry (ambas pestañas) ── */}
             {!loadingPrendas && !prendasMensaje && (
               <>
-                {/* Clóset vacío en 'todos' */}
-                {activeTab === 'todos' && prendas.length === 0 && (
+                {/* Sin prendas publicas en 'todos' */}
+                {activeTab === 'todos' && prendasPublicas.length === 0 && (
                   <div className="text-center py-12">
                     <p className="text-gray-600 mb-4">Aún no tienes prendas. ¡Añade la primera!</p>
                     <button onClick={() => navigate('/añadir-prenda')}
