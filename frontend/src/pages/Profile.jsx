@@ -2,8 +2,10 @@ import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import authService from '../services/authService';
 import { supabase } from '../services/supabaseClient';
-import { User, MapPin, Mail, Calendar, Lock, Globe, Camera, LogOut, ShoppingBag, ExternalLink, Search, Plus, Shirt } from 'lucide-react';
-import logo3 from '../assets/logo3.png';
+import { 
+  User, MapPin, Mail, Calendar, Lock, Globe, Camera, 
+  LogOut, Plus, Shirt, Grid, Search, Pencil, Check, X
+} from 'lucide-react';
 import prendaService from '../services/prendaService';
 import outfitService from '../services/outfitService';
 
@@ -12,24 +14,32 @@ const Profile = () => {
   const [isEditing, setIsEditing] = useState(false);
   const [formData, setFormData] = useState({});
   const [loading, setLoading] = useState(false);
+  const [statusMessage, setStatusMessage] = useState({ type: '', text: '' });
   const [uploadingPhoto, setUploadingPhoto] = useState(false);
-  const [activeTab, setActiveTab] = useState('todos');
+  const [uploadingBackground, setUploadingBackground] = useState(false);
   const [armarioTab, setArmarioTab] = useState('armario');
   const [prendas, setPrendas] = useState([]);
   const [outfits, setOutfits] = useState([]);
   const [wardrobeLoading, setWardrobeLoading] = useState(false);
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [selectedCategory, setSelectedCategory] = useState('Todas');
+  const [selectedColor, setSelectedColor] = useState('Todos');
+
   const fileInputRef = useRef(null);
+  const backgroundInputRef = useRef(null);
   const navigate = useNavigate();
 
-  const tabs = [
-    { id: 'todos', label: 'Todos' },
-    { id: 'inspo', label: 'Inspo' },
-    { id: 'products', label: 'Products' },
-  ];
-
-  const shopButtons = [
-    { name: 'Shein', icon: ShoppingBag },
-    { name: 'AliExpress', icon: ExternalLink },
+  const coloresFiltro = [
+    { nombre: 'Todos', clase: 'bg-gradient-to-tr from-celeste via-rosado to-amarillo border-gray-200' },
+    { nombre: 'Blanco', clase: 'bg-white border-gray-200' },
+    { nombre: 'Negro', clase: 'bg-gray-950 border-transparent' },
+    { nombre: 'Gris', clase: 'bg-gray-400 border-transparent' },
+    { nombre: 'Rojo', clase: 'bg-red-400 border-transparent' },
+    { nombre: 'Rosado', clase: 'bg-rosado border-transparent' },
+    { nombre: 'Azul', clase: 'bg-blue-400 border-transparent' },
+    { nombre: 'Verde', clase: 'bg-verde border-transparent' },
+    { nombre: 'Amarillo', clase: 'bg-amarillo border-transparent' },
   ];
 
   useEffect(() => {
@@ -63,6 +73,83 @@ const Profile = () => {
     };
   }, [user?.id]);
 
+  useEffect(() => {
+    if (statusMessage.text) {
+      const timer = setTimeout(() => setStatusMessage({ type: '', text: '' }), 4000);
+      return () => clearTimeout(timer);
+    }
+  }, [statusMessage]);
+
+  const handleUploadMedia = async (e, type) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    if (!file.type.startsWith('image/')) {
+      setStatusMessage({ type: 'error', text: 'Solo se permiten archivos de imagen.' });
+      return;
+    }
+
+    if (type === 'avatar') setUploadingPhoto(true);
+    if (type === 'fondo') setUploadingBackground(true);
+
+    const bucketName = 'iconprofile';
+
+    try {
+      const ext = file.name.split('.').pop().toLowerCase();
+      const fileName = `${type}/${type}_${Date.now()}.${ext}`;
+      
+      const { error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(fileName, file, { cacheControl: '0', upsert: false });
+
+      if (uploadError) throw uploadError;
+
+      const { data: urlData } = supabase.storage
+        .from(bucketName)
+        .getPublicUrl(fileName);
+
+      const publicUrl = urlData.publicUrl;
+      
+      // Creamos el estado local actualizado con la nueva URL estable
+      const updatedPayload = {
+        ...formData,
+        ...(type === 'avatar' ? { foto_perfil: publicUrl } : { fondo: publicUrl })
+      };
+
+      // 1. Forzamos la actualización visual en la pantalla de inmediato
+      setUser(updatedPayload);
+      setFormData(updatedPayload);
+
+      // 2. Le mandamos los datos al backend para que los guarde en la BD
+      const result = await authService.updateUser(updatedPayload);
+      
+      // 3. Extraemos lo que responda el backend
+      const backendUser = result?.user || result?.usuario || result;
+      
+      // 4. Fusionamos de forma segura: Priorizamos los datos del backend,
+      // pero ASEGURAMOS que mantenga las URLs de las imágenes que acabamos de generar.
+      const finalUser = {
+        ...updatedPayload, // Base con las nuevas imágenes garantizadas
+        ...backendUser,    // Datos que el backend quiera actualizar (nombre, bio, etc.)
+        foto_perfil: updatedPayload.foto_perfil, // Forzado absoluto
+        fondo: updatedPayload.fondo              // Forzado absoluto
+      };
+      
+      // 5. Consolidamos en los estados y almacenamiento local
+      setUser(finalUser);
+      setFormData(finalUser);
+      localStorage.setItem('usuario', JSON.stringify(finalUser));
+      
+      setStatusMessage({ type: 'success', text: 'Imagen sincronizada correctamente.' });
+    } catch (err) {
+      console.error("=== ERROR EN LA SUBIDA ===", err);
+      setStatusMessage({ type: 'error', text: `Error: ${err.message || 'No se pudo guardar la imagen'}` });
+    } finally {
+      setUploadingPhoto(false);
+      setUploadingBackground(false);
+    }
+  };
+
   const handleLogout = () => {
     authService.logout();
     navigate('/login');
@@ -73,445 +160,366 @@ const Profile = () => {
     setFormData({ ...formData, [name]: type === 'checkbox' ? checked : value });
   };
 
-  const handlePhotoClick = () => {
-    if (isEditing) fileInputRef.current.click();
-  };
-
-  const handlePhotoChange = async (e) => {
-  const file = e.target.files[0];
-  if (!file) return;
-
-  // LOG DE CONTROL: Mira esto en la consola del navegador (F12)
-  console.log("Archivo seleccionado:", file.name, "Tipo:", file.type);
-
-  if (!file.type.startsWith('image/')) {
-    Swal.fire({
-    icon: 'error',
-    title: 'Error',
-    text: 'Sólo se permiten imágenes',
-    confirmButtonColor: '#9f8aef'
-  })
-    return;
-  }
-
-  setUploadingPhoto(true);
-  try {
-    const ext = file.name.split('.').pop().toLowerCase();
-    // Generamos un nombre limpio
-    const fileName = `avatar_${Date.now()}.${ext}`;
-    
-    console.log("Subiendo a ICONPROFILE con nombre:", fileName);
-
-    const { data, error: uploadError } = await supabase.storage
-      .from('iconprofile') 
-      .upload(fileName, file, { 
-        cacheControl: '3600',
-        upsert: true 
-      });
-
-    if (uploadError) {
-      console.error("Error detallado de Supabase:", uploadError);
-      throw uploadError;
-    }
-
-    const { data: urlData } = supabase.storage
-      .from('iconprofile')
-      .getPublicUrl(fileName);
-
-    const publicUrl = urlData.publicUrl;
-    console.log("URL generada:", publicUrl);
-
-    const result = await authService.updateUser({ ...formData, foto_perfil: publicUrl });
-    const updatedUser = result.usuario || result.user;
-    
-    setUser(updatedUser);
-    setFormData(updatedUser);
-    localStorage.setItem('usuario', JSON.stringify(updatedUser));
-    Swal.fire({
-      icon: 'success',
-      title: '¡Foto actualizada!',
-      text: 'Tu foto de perfil ha sido actualizada exitosamente.',
-      confirmButtonColor: '#9f8aef'
-    });
-
-  } catch (err) {
-    console.error("Objeto de error completo:", err);
-    Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: 'Error al subir la imagen: ' + (err.message || 'Error desconocido'),
-      confirmButtonColor: '#9f8aef'
-    });
-  } finally {
-    setUploadingPhoto(false);
-  }
-};
-
-
   const handleSubmit = async (e) => {
     e.preventDefault();
-    setLoading(true);
+    loading(true);
     try {
       const result = await authService.updateUser(formData);
-      setUser(result.usuario || result.user);
+      const updatedUser = result.usuario || result.user || result;
+      setUser(updatedUser);
+      setFormData(updatedUser);
+      localStorage.setItem('usuario', JSON.stringify(updatedUser));
       setIsEditing(false);
-      Swal.fire({
-        icon: 'success',
-        title: '¡Perfil actualizado!',
-        text: 'Tu perfil ha sido actualizado exitosamente.',
-        confirmButtonColor: '#9f8aef'
-      });
+      setStatusMessage({ type: 'success', text: 'Perfil actualizado correctamente.' });
     } catch (err) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Error al actualizar el perfil: ' + (err.message || 'Error desconocido'),
-        confirmButtonColor: '#9f8aef'
-      });
+      setStatusMessage({ type: 'error', text: 'No se pudieron consolidar los cambios del perfil.' });
     } finally {
       setLoading(false);
     }
   };
 
+  const categoriasDisponibles = ['Todas', ...new Set(prendas.map(p => p.categoria || 'Otros'))];
+
+  const prendasFiltradas = prendas.filter(p => {
+    const matchesSearch = p.nombre?.toLowerCase().includes(searchTerm.toLowerCase());
+    const matchesCategory = selectedCategory === 'Todas' || p.categoria === selectedCategory;
+    const matchesColor = selectedColor === 'Todos' || p.color?.toLowerCase() === selectedColor.toLowerCase();
+    return matchesSearch && matchesCategory && matchesColor;
+  });
+
   if (!user) return null;
 
-  return (
-    <div className="min-h-screen relative">
+  const nombreUsuario = user.nombre || '';
+  const apellidoUsuario = user.apellido || '';
 
-      <header className="sticky top-0 z-30 bg-blanco shadow-sm px-8 py-4">
-        <div className="flex items-center justify-between">
-          <button onClick={() => navigate('/')} className="h-10 w-auto cursor-pointer mr-6 hover:opacity-90 transition-all">
-            <img src={logo3} alt="PinWand" className="h-full w-auto object-contain" />
+  return (
+    <div className="h-screen bg-slate-50 text-gray-900 flex justify-center w-full relative selection:bg-rosado/30 overflow-y-scroll scrollbar-thin scrollbar-thumb-morado/20 scrollbar-track-transparent hover:scrollbar-thumb-morado/40 transition-colors">
+      
+      {statusMessage.text && (
+        <div className={`fixed bottom-6 right-6 z-50 px-6 py-3.5 rounded-2xl shadow-xl border text-sm font-bold flex items-center gap-2 bg-white transition-all ${
+          statusMessage.type === 'success' ? 'border-verde text-gray-900' : statusMessage.type === 'error' ? 'border-red-300 text-red-600' : 'border-celeste text-gray-700'
+        }`}>
+          <div className={`w-2.5 h-2.5 rounded-full ${statusMessage.type === 'success' ? 'bg-verde' : statusMessage.type === 'error' ? 'bg-red-500' : 'bg-celeste'}`} />
+          {statusMessage.text}
+        </div>
+      )}
+
+      <div className="w-full max-w-6xl bg-white h-fit shadow-sm flex flex-col relative mb-12">
+        
+        {/* PORTADA - AHORA USA EL ESTADO USER ACTUALIZADO EN TIEMPO REAL */}
+        <div 
+          className="h-44 w-full relative bg-cover bg-center border-b border-gray-100"
+          style={{ 
+            backgroundColor: '#ccc', 
+            backgroundImage: user?.fondo ? `url(${user.fondo})` : 'none',
+            backgroundPosition: 'center',
+            backgroundSize: 'cover'
+          }}
+        >
+          <button 
+            onClick={handleLogout}
+            className="absolute top-4 right-4 z-30 px-4 py-2.5 text-xs font-bold text-white bg-black/20 hover:bg-black/40 backdrop-blur-md rounded-xl transition-all flex items-center gap-2"
+          >
+            <LogOut className="w-4 h-4" /> Cerrar sesión
           </button>
 
-          <nav className="flex gap-8">
-            {tabs.map((tab) => (
-              <button
-                key={tab.id}
-                onClick={() => setActiveTab(tab.id)}
-                className={`px-4 py-2 font-medium transition-all duration-300 rounded-2xl
-                  ${activeTab === tab.id ? 'bg-morado text-blanco' : 'text-gray-900 hover:bg-rosado'}`}
-              >
-                {tab.label}
-              </button>
-            ))}
-          </nav>
+          <input type="file" ref={fileInputRef} onChange={(e) => handleUploadMedia(e, 'avatar')} accept="image/*" className="hidden" />
+          <input type="file" ref={backgroundInputRef} onChange={(e) => handleUploadMedia(e, 'fondo')} accept="image/*" className="hidden" />
 
-          <div className="flex-1 mx-8">
-            <div className="relative">
-              <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-600" />
-              <input
-                type="text"
-                placeholder="Buscar outfits o prendas..."
-                className="w-full pl-12 pr-4 py-3 bg-blanco rounded-full border-2 border-rosado focus:border-morado focus:ring-0 focus:outline-none transition-all duration-300 text-gray-900 placeholder-gray-600"
-              />
-            </div>
-          </div>
-
-          <div className="flex gap-3">
-            {shopButtons.map((shop) => {
-              const Icon = shop.icon;
-              return (
-                <button
-                  key={shop.name}
-                  className="flex items-center gap-2 px-4 py-2 bg-transparent hover:bg-rosado rounded-2xl transition-all duration-300 group"
-                >
-                  <Icon className="w-4 h-4 text-gray-900 group-hover:scale-110 transition-transform" />
-                  <span className="text-gray-900 text-sm font-medium">{shop.name}</span>
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </header>
-
-      <main className="p-8 bg-gradient-to-b from-amarillo from-5% via-blanco via-50% to-amarillo to-95% bg-fixed min-h-screen">
-        <div className="max-w-6xl mx-auto">
-          <div className="bg-blanco rounded-3xl shadow-sm overflow-hidden">
-
-            <div className="h-36 bg-gradient-to-r from-rosado to-celeste relative">
-              <div className="absolute -bottom-6 left-8">
-                <input
-                  type="file"
-                  ref={fileInputRef}
-                  onChange={handlePhotoChange}
-                  accept="image/*"
-                  className="hidden"
-                />
-                <div
-                  onClick={handlePhotoClick}
-                  className={`w-20 h-20 bg-blanco rounded-2xl flex items-center justify-center border-4 border-blanco shadow-md overflow-hidden relative
-                    ${isEditing ? 'cursor-pointer group' : 'cursor-default'}`}
-                >
-                  {uploadingPhoto ? (
-                    <div className="w-full h-full flex items-center justify-center bg-rosado/20">
-                      <div className="w-6 h-6 border-2 border-morado border-t-transparent rounded-full animate-spin" />
-                    </div>
-                  ) : user.foto_perfil ? (
-                    <img src={user.foto_perfil} alt={user.nombre} className="w-full h-full object-cover" />
-                  ) : (
-                    <User className="w-10 h-10 text-morado/40" />
-                  )}
-                  {isEditing && !uploadingPhoto && (
-                    <div className="absolute inset-0 bg-black/40 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
-                      <Camera className="w-5 h-5 text-blanco" />
-                      <span className="text-blanco text-xs mt-1">Cambiar</span>
-                    </div>
-                  )}
+          {/* OVERLAY DE EDICIÓN EN PORTADA */}
+          {isEditing && (
+            <div 
+              onClick={(e) => {
+                e.stopPropagation(); 
+                backgroundInputRef.current.click();
+              }}
+              className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-2 cursor-pointer z-10 text-white"
+            >
+              <Camera className="w-8 h-8 stroke-[2.5]" />
+              <span className="text-xl font-black tracking-wide">Actualizar Portada</span>
+              {uploadingBackground && (
+                <div className="absolute inset-0 bg-black/60 flex items-center justify-center">
+                  <div className="w-8 h-8 border-4 border-white border-t-transparent rounded-full animate-spin" />
                 </div>
-              </div>
+              )}
+            </div>
+          )}
+        </div>
 
-              <div className="absolute top-4 right-6 flex gap-2">
-                {!isEditing && (
-                  <button
-                    onClick={() => setIsEditing(true)}
-                    className="flex items-center gap-2 px-4 py-2 bg-blanco/80 hover:bg-blanco text-morado rounded-2xl transition-all duration-300 text-sm font-medium shadow-sm backdrop-blur-sm"
-                  >
-                    Editar Perfil
-                  </button>
+        {/* CONTENEDOR DE INFORMACIÓN */}
+        <div className="px-8 pb-6 flex flex-col items-center md:items-start gap-4 border-b border-gray-100 relative bg-white">
+          
+          {!isEditing && (
+            <button 
+              onClick={() => setIsEditing(true)}
+              title="Editar Información de Perfil"
+              className="absolute top-4 right-8 p-3 border border-gray-200 hover:border-morado/40 hover:bg-purple-50/30 rounded-xl text-gray-600 hover:text-morado transition-all shadow-sm z-20"
+            >
+              <Pencil className="w-4 h-4" />
+            </button>
+          )}
+
+          <div className="flex flex-col items-center md:items-start w-full">
+            
+            {/* AVATAR ANCLADO CON MARGEN NEGATIVO */}
+            <div className="-mt-16 relative z-20 mb-3 flex-none">
+              <div className="w-32 h-32 bg-white rounded-3xl p-1.5 shadow-md overflow-hidden relative border border-gray-100 group/avatar">
+                {uploadingPhoto ? (
+                  <div className="w-full h-full flex items-center justify-center bg-gray-50">
+                    <div className="w-6 h-6 border-2 border-morado border-t-transparent rounded-full animate-spin" />
+                  </div>
+                ) : user.foto_perfil ? (
+                  <img src={user.foto_perfil} alt={nombreUsuario} className="w-full h-full object-cover rounded-2xl" />
+                ) : (
+                  <div className="w-full h-full bg-slate-50 flex items-center justify-center rounded-2xl">
+                    <User className="w-14 h-14 text-gray-300" />
+                  </div>
                 )}
-                <button
-                  onClick={handleLogout}
-                  className="flex items-center gap-2 px-4 py-2 bg-blanco/80 hover:bg-blanco text-gray-700 rounded-2xl transition-all duration-300 text-sm font-medium shadow-sm backdrop-blur-sm group"
-                >
-                  <LogOut className="w-4 h-4 group-hover:scale-110 transition-transform" />
-                  Salir
-                </button>
+
+                {/* OVERLAY DE EDICIÓN EN AVATAR */}
+                {isEditing && (
+                  <div 
+                    onClick={() => fileInputRef.current.click()}
+                    className="absolute inset-0 bg-black/50 backdrop-blur-[1px] opacity-0 group-hover/avatar:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-1 text-white cursor-pointer"
+                  >
+                    <Camera className="w-5 h-5" />
+                    <span className="text-xs font-bold">Actualizar</span>
+                  </div>
+                )}
               </div>
             </div>
 
-            <div className="pt-10 pb-8 px-8">
+            {/* SECCIÓN DE DATOS O FORMULARIO */}
+            <div className="w-full space-y-4 text-center md:text-left">
               {isEditing ? (
-                <form onSubmit={handleSubmit} className="space-y-5">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-5">
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Nombre</label>
-                      <input
-                        type="text" name="nombre" value={formData.nombre || ''} onChange={handleChange} required
-                        className="w-full px-4 py-2.5 border-2 border-celeste rounded-2xl focus:border-morado outline-none transition-colors text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Apellido</label>
-                      <input
-                        type="text" name="apellido" value={formData.apellido || ''} onChange={handleChange} required
-                        className="w-full px-4 py-2.5 border-2 border-celeste rounded-2xl focus:border-morado outline-none transition-colors text-sm"
-                      />
-                    </div>
-                    <div>
-                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Ciudad</label>
-                      <input
-                        type="text" name="ciudad" value={formData.ciudad || ''} onChange={handleChange}
-                        className="w-full px-4 py-2.5 border-2 border-celeste rounded-2xl focus:border-morado outline-none transition-colors text-sm"
-                      />
-                    </div>
-                    <div className="md:col-span-2">
-                      <label className="block text-xs font-medium text-gray-600 mb-1.5">Biografía</label>
-                      <textarea
-                        name="bio" value={formData.bio || ''} onChange={handleChange} rows="3"
-                        className="w-full px-4 py-2.5 border-2 border-celeste rounded-2xl focus:border-morado outline-none transition-colors text-sm resize-none"
-                      />
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <input
-                        type="checkbox" id="es_privado" name="es_privado"
-                        checked={formData.es_privado || false} onChange={handleChange}
-                        className="w-4 h-4 accent-morado rounded"
-                      />
-                      <label htmlFor="es_privado" className="text-sm text-gray-600">Perfil Privado</label>
-                    </div>
+                <form onSubmit={handleSubmit} className="space-y-3 max-w-xl mx-auto md:mx-0">
+                  <div className="grid grid-cols-2 gap-3">
+                    <input type="text" name="nombre" placeholder="Nombre" value={formData.nombre || ''} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-morado transition-colors bg-slate-50" />
+                    <input type="text" name="apellido" placeholder="Apellido" value={formData.apellido || ''} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-morado transition-colors bg-slate-50" />
                   </div>
-                  <div className="flex gap-3 pt-2">
-                    <button
-                      type="submit" disabled={loading}
-                      className="px-7 py-2.5 bg-verde text-blanco rounded-2xl hover:bg-verde/90 transition-all text-sm font-bold shadow-md disabled:opacity-50"
-                    >
-                      {loading ? 'Guardando...' : 'Guardar Cambios'}
+                  <input type="text" name="ciudad" placeholder="Ciudad, País" value={formData.ciudad || ''} onChange={handleChange} className="w-full px-3 py-2 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-morado transition-colors bg-slate-50" />
+                  <textarea name="bio" placeholder="Describe brevemente tu identidad o estilo..." value={formData.bio || ''} onChange={handleChange} rows="2" className="w-full px-3 py-2 border border-gray-200 rounded-xl text-base resize-none focus:outline-none focus:border-morado transition-colors bg-slate-50" />
+                  <div className="flex items-center justify-center md:justify-start gap-2 pt-1">
+                    <input type="checkbox" id="es_privado" name="es_privado" checked={formData.es_privado || false} onChange={handleChange} className="rounded text-morado focus:ring-0 w-4 h-4" />
+                    <label htmlFor="es_privado" className="text-sm font-medium text-gray-500">Habilitar cuenta privada</label>
+                  </div>
+                  
+                  <div className="flex items-center justify-center md:justify-start gap-2 pt-2">
+                    <button type="submit" disabled={loading} className="px-5 py-2 bg-gray-900 text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors shadow-sm inline-flex items-center gap-1.5">
+                      <Check className="w-4 h-4" /> {loading ? 'Guardando...' : 'Confirmar'}
                     </button>
-                    <button
-                      type="button" onClick={() => { setIsEditing(false); setFormData(user); }}
-                      className="px-7 py-2.5 bg-gray-100 text-gray-600 rounded-2xl hover:bg-rosado hover:text-gray-900 transition-all text-sm font-bold"
-                    >
-                      Cancelar
+                    <button type="button" onClick={() => { setIsEditing(false); setFormData(user); }} className="px-5 py-2 bg-gray-100 text-gray-600 rounded-xl font-bold text-sm hover:bg-gray-200 transition-colors inline-flex items-center gap-1.5">
+                      <X className="w-4 h-4" /> Cancelar
                     </button>
                   </div>
                 </form>
               ) : (
                 <>
                   <div>
-                    <h2 className="text-2xl font-bold text-morado">{user.nombre} {user.apellido}</h2>
-                    <p className="text-gray-500 flex items-center gap-2 text-sm mt-1">
-                      <Mail className="w-4 h-4" /> {user.email}
+                    <h2 className="text-4xl font-black text-gray-900 tracking-tight">{nombreUsuario} {apellidoUsuario}</h2>
+                    <p className="text-sm font-semibold text-gray-400 flex items-center justify-center md:justify-start gap-1.5 mt-1">
+                      <Mail className="w-4 h-4 text-gray-300" /> {user.email}
                     </p>
                   </div>
 
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-7">
-                    <div className="space-y-4">
-                      <div className="flex items-center gap-3 text-gray-600 text-sm">
-                        <MapPin className="w-4 h-4 text-morado" />
-                        <span>{user.ciudad || 'Ciudad no especificada'}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-gray-600 text-sm">
-                        <Calendar className="w-4 h-4 text-morado" />
-                        <span>Miembro desde: {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Recientemente'}</span>
-                      </div>
-                      <div className="flex items-center gap-3 text-gray-600 text-sm">
-                        {user.es_privado
-                          ? <><Lock className="w-4 h-4 text-morado" /><span>Perfil Privado</span></>
-                          : <><Globe className="w-4 h-4 text-morado" /><span>Perfil Público</span></>
-                        }
-                      </div>
-                    </div>
-                    <div className="bg-rosado/20 border border-rosado/40 rounded-2xl p-5">
-                      <h3 className="text-xs font-bold text-morado uppercase tracking-widest mb-2">Biografía</h3>
-                      <p className="text-gray-500 text-sm leading-relaxed italic">
-                        {user.bio || 'Aún no has añadido una biografía a tu perfil.'}
-                      </p>
-                    </div>
+                  <p className="text-base text-gray-600 max-w-2xl font-medium leading-relaxed bg-slate-50/60 p-4 rounded-2xl border border-gray-100 mx-auto md:mx-0 text-left">
+                    {user.bio || '💡 Configurando combinaciones perfectas desde tu armario.'}
+                  </p>
+                  
+                  <div className="flex flex-wrap justify-center md:justify-start gap-2.5 pt-1 text-xs font-semibold text-gray-500">
+                    <span className="flex items-center gap-1 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                      <MapPin className="w-3.5 h-3.5 text-morado" /> {user.ciudad || 'La Paz, Bolivia'}
+                    </span>
+                    <span className="flex items-center gap-1 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                      <Calendar className="w-3.5 h-3.5 text-celeste" /> Unido el {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Recientemente'}
+                    </span>
+                    <span className="flex items-center gap-1 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                      {user.es_privado ? <><Lock className="w-3.5 h-3.5 text-red-400" /> Privado</> : <><Globe className="w-3.5 h-3.5 text-verde" /> Público</>}
+                    </span>
                   </div>
                 </>
               )}
-
-              <div className="mt-10 border-t border-rosado/30 pt-8">
-                <div className="flex flex-wrap items-end gap-6 border-b border-gray-200">
-                  {[
-                    { id: 'armario', label: 'Mi Armario Virtual' },
-                    { id: 'outfits', label: 'Outfits' },
-                    { id: 'pruebas', label: 'Pruebas' },
-                  ].map((tab) => (
-                    <button
-                      key={tab.id}
-                      type="button"
-                      onClick={() => setArmarioTab(tab.id)}
-                      className={`pb-3 text-base font-semibold transition-colors border-b-[3px] -mb-px ${
-                        armarioTab === tab.id
-                          ? 'text-gray-900 border-gray-900'
-                          : 'text-gray-500 border-transparent hover:text-gray-800'
-                      }`}
-                    >
-                      {tab.label}
-                    </button>
-                  ))}
-                </div>
-
-                <div className="pt-6 min-h-[200px]">
-                  {armarioTab === 'armario' && (
-                    <>
-                      <div className="flex justify-end mb-4">
-                        <button
-                          type="button"
-                          onClick={() => navigate('/añadir-prenda')}
-                          className="inline-flex items-center gap-2 rounded-full bg-verde text-blanco px-5 py-2.5 text-sm font-bold shadow-md hover:bg-verde/90 transition-colors"
-                        >
-                          <Plus className="w-4 h-4" />
-                          Añadir prenda
-                        </button>
-                      </div>
-                      {wardrobeLoading ? (
-                        <p className="text-center text-gray-500 text-sm py-12">Cargando tu armario…</p>
-                      ) : prendas.length === 0 ? (
-                        <div className="rounded-3xl border-2 border-dashed border-rosado/40 bg-rosado/10 py-16 px-6 text-center">
-                          <Shirt className="w-12 h-12 text-morado/40 mx-auto mb-3" />
-                          <p className="text-gray-600 text-sm mb-4">Aún no tienes prendas en tu armario virtual.</p>
-                          <button
-                            type="button"
-                            onClick={() => navigate('/añadir-prenda')}
-                            className="text-morado font-semibold text-sm hover:underline"
-                          >
-                            Añadir tu primera prenda
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                          {prendas.map((p) => (
-                            <button
-                              key={p.id}
-                              type="button"
-                              onClick={() => navigate(`/prenda/${p.id}`)}
-                              className="group text-left rounded-3xl overflow-hidden bg-white shadow-sm border border-gray-100 hover:shadow-md hover:border-morado/30 transition-all"
-                            >
-                              <div className="aspect-square bg-gray-50">
-                                <img
-                                  src={p.imagen_url}
-                                  alt={p.nombre || 'Prenda'}
-                                  className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-                                />
-                              </div>
-                              <p className="px-3 py-2 text-xs font-medium text-gray-800 line-clamp-2">{p.nombre}</p>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {armarioTab === 'outfits' && (
-                    <>
-                      <div className="flex justify-end mb-4">
-                        <button
-                          type="button"
-                          onClick={() => navigate('/calendario')}
-                          className="inline-flex items-center gap-2 rounded-full bg-verde text-blanco px-5 py-2.5 text-sm font-bold shadow-md hover:bg-verde/90 transition-colors"
-                        >
-                          <Plus className="w-4 h-4" />
-                          Crear outfit
-                        </button>
-                      </div>
-                      {wardrobeLoading ? (
-                        <p className="text-center text-gray-500 text-sm py-12">Cargando outfits…</p>
-                      ) : outfits.length === 0 ? (
-                        <div className="rounded-3xl border-2 border-dashed border-rosado/40 bg-rosado/10 py-16 px-6 text-center">
-                          <p className="text-gray-600 text-sm mb-4">No tienes outfits guardados.</p>
-                          <button
-                            type="button"
-                            onClick={() => navigate('/calendario')}
-                            className="text-morado font-semibold text-sm hover:underline"
-                          >
-                            Crear uno en el calendario
-                          </button>
-                        </div>
-                      ) : (
-                        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-                          {outfits.filter(o => !o.es_clon).map((o) => (
-                            <button
-                              key={o.id}
-                              type="button"
-                              onClick={() => navigate(`/lienzo/${o.id}`)}
-                              className="group text-left rounded-3xl overflow-hidden bg-white shadow-sm border border-gray-100 hover:shadow-md hover:border-morado/30 transition-all"
-                            >
-                              <div className="aspect-[4/5] bg-gradient-to-br from-[#f6ccfa] to-[#c2e1f9] flex items-center justify-center">
-                                {o.imagen_url ? (
-                                  <img
-                                    src={o.imagen_url}
-                                    alt={o.nombre || 'Outfit'}
-                                    className="w-full h-full object-cover group-hover:scale-[1.02] transition-transform duration-300"
-                                  />
-                                ) : (
-                                  <span className="text-4xl" aria-hidden>👗</span>
-                                )}
-                              </div>
-                              <p className="px-3 py-2 text-xs font-medium text-gray-800 line-clamp-2">{o.nombre || 'Sin nombre'}</p>
-                            </button>
-                          ))}
-                        </div>
-                      )}
-                    </>
-                  )}
-
-                  {armarioTab === 'pruebas' && (
-                    <div className="rounded-3xl border border-gray-200 bg-white py-20 px-6 text-center">
-                      <p className="text-gray-500 text-lg font-medium">Próximamente</p>
-                      <p className="text-gray-400 text-sm mt-2 max-w-md mx-auto">
-                        Aquí podrás ver las pruebas de try-on de tus outfits. Esta sección está en preparación.
-                      </p>
-                    </div>
-                  )}
-                </div>
-              </div>
             </div>
           </div>
         </div>
-      </main>
+
+        {/* PESTAÑAS DEL ARMARIO */}
+        <div className="flex justify-center px-8 border-b border-gray-100 bg-white w-full">
+          {[
+            { id: 'armario', label: 'Mi Armario Virtual' },
+            { id: 'outfits', label: 'Outfits Guardados' },
+            { id: 'pruebas', label: 'Módulo Try-On' },
+          ].map((tab) => (
+            <button
+              key={tab.id}
+              onClick={() => setArmarioTab(tab.id)}
+              className="py-4 px-6 text-sm font-extrabold relative hover:text-morado transition-colors"
+            >
+              <span className={armarioTab === tab.id ? 'text-morado' : 'text-gray-400'}>
+                {tab.label}
+              </span>
+              {armarioTab === tab.id && (
+                <div className="absolute bottom-0 left-0 right-0 h-0.5 bg-morado rounded-full" />
+              )}
+            </button>
+          ))}
+        </div>
+
+        {/* CONTENIDO INTERNO */}
+        <div className="p-8 bg-slate-50/50 flex-1">
+          {armarioTab === 'armario' && (
+            <>
+              <div className="w-full max-w-4xl mx-auto mb-8 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center gap-4">
+                <div className="flex flex-wrap items-center justify-center gap-3 w-full">
+                  <div className="relative w-full max-w-xs">
+                    <Search className="absolute left-3 w-4 h-4 text-gray-400 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Buscar prenda..."
+                      value={searchTerm}
+                      onChange={(e) => setSearchTerm(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 bg-gray-50 focus:bg-white border border-transparent focus:border-morado rounded-xl text-sm focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  <div className="flex flex-wrap items-center justify-center gap-1.5">
+                    {categoriasDisponibles.map((cat) => (
+                      <button
+                        key={cat}
+                        onClick={() => setSelectedCategory(cat)}
+                        className={`px-3 py-1.5 text-xs font-bold rounded-lg border transition-all ${
+                          selectedCategory === cat 
+                            ? 'bg-gray-950 border-transparent text-white shadow-sm' 
+                            : 'bg-gray-50 border-transparent text-gray-400 hover:bg-gray-100 hover:text-gray-600'
+                        }`}
+                      >
+                        {cat}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="flex items-center justify-center gap-2.5 pt-2 border-t border-gray-50 w-full max-w-md">
+                  {coloresFiltro.map((col) => (
+                    <button
+                      key={col.nombre}
+                      title={col.nombre}
+                      onClick={() => setSelectedColor(col.nombre)}
+                      className={`w-6 h-6 rounded-full border flex items-center justify-center transition-all ${col.clase} ${
+                        selectedColor === col.nombre 
+                          ? 'scale-110 ring-2 ring-morado ring-offset-2 z-10' 
+                          : 'hover:scale-105'
+                      }`}
+                    >
+                      {selectedColor === col.nombre && (
+                        <span className={`w-1.5 h-1.5 rounded-full ${col.nombre === 'Blanco' || col.nombre === 'Amarillo' ? 'bg-gray-800' : 'bg-white'}`} />
+                      )}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="flex justify-between items-center mb-6 max-w-5xl mx-auto">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Prendas ({prendasFiltradas.length})</h3>
+                <button
+                  onClick={() => navigate('/añadir-prenda')}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gray-950 text-white px-4 py-2 text-sm font-bold hover:bg-gray-800 transition-colors shadow-sm"
+                >
+                  <Plus className="w-4 h-4" /> Nueva Prenda
+                </button>
+              </div>
+
+              {wardrobeLoading ? (
+                <div className="text-center py-16">
+                  <div className="w-6 h-6 border-2 border-morado border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-gray-400 text-sm font-medium">Sincronizando el armario virtual...</p>
+                </div>
+              ) : prendasFiltradas.length === 0 ? (
+                <div className="bg-white border border-dashed border-gray-200 rounded-2xl py-12 px-4 text-center shadow-sm max-w-md mx-auto">
+                  <Shirt className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                  <p className="text-gray-400 text-sm font-medium">No hay ninguna coincidencia en el inventario.</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-w-5xl mx-auto pb-8">
+                  {prendasFiltradas.map((p) => (
+                    <button
+                      key={p.id}
+                      onClick={() => navigate(`/prenda/${p.id}`)}
+                      className="group bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-morado/40 transition-all text-left shadow-sm hover:shadow"
+                    >
+                      <div className="aspect-square bg-slate-50 overflow-hidden relative">
+                        <img src={p.imagen_url} alt={p.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        {p.color && (
+                          <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-white/90 text-[10px] font-bold uppercase text-gray-500 border border-gray-100">
+                            {p.color}
+                          </div>
+                        )}
+                      </div>
+                      <div className="p-3.5">
+                        <p className="text-sm font-bold text-gray-900 truncate group-hover:text-morado transition-colors">{p.nombre}</p>
+                        {p.categoria && (
+                          <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5 tracking-wider">{p.categoria}</p>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
+
+          {/* TAB: OUTFITS */}
+          {armarioTab === 'outfits' && (
+            <div className="max-w-5xl mx-auto pb-8">
+              <div className="flex justify-end mb-6">
+                <button
+                  onClick={() => navigate('/calendario')}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gray-950 text-white px-4 py-2 text-sm font-bold hover:bg-gray-800 transition-colors shadow-sm"
+                >
+                  <Plus className="w-4 h-4" /> Diseñar Outfit
+                </button>
+              </div>
+              {outfits.length === 0 ? (
+                <div className="bg-white border border-dashed border-gray-200 rounded-2xl py-12 text-center text-gray-400 text-sm shadow-sm max-w-md mx-auto">
+                  No hay combinaciones registradas en este momento.
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {outfits.filter(o => !o.es_clon).map((o) => (
+                    <button
+                      key={o.id}
+                      onClick={() => navigate(`/lienzo/${o.id}`)}
+                      className="group bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-morado/40 transition-all hover:shadow-md text-left shadow-sm"
+                    >
+                      <div className="aspect-[4/5] bg-gray-50 flex items-center justify-center overflow-hidden">
+                        {o.imagen_url ? (
+                          <img src={o.imagen_url} alt={o.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                        ) : (
+                          <span className="text-3xl">👗</span>
+                        )}
+                      </div>
+                      <div className="p-3 border-t border-gray-50">
+                        <p className="text-sm font-bold text-gray-900 truncate group-hover:text-morado transition-colors">{o.nombre || 'Outfit sin título'}</p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
+          {/* TAB: TRY-ON */}
+          {armarioTab === 'pruebas' && (
+            <div className="bg-white border border-gray-100 rounded-2xl py-16 px-4 text-center shadow-sm max-w-md mx-auto">
+              <Grid className="w-8 h-8 text-morado mx-auto mb-2" />
+              <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Probador Inteligente AI</h4>
+              <p className="text-gray-400 text-xs mt-1.5 max-w-xs mx-auto leading-relaxed">
+                Próximamente podrás superponer tus prendas digitales sobre modelos personalizados.
+              </p>
+            </div>
+          )}
+        </div>
+      </div>
     </div>
   );
 };

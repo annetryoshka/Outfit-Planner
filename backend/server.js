@@ -1,6 +1,8 @@
 const express = require('express')
 const cors = require('cors')
 const dotenv = require('dotenv')
+dotenv.config()
+
 const pool = require('./src/config/database')
 const authRoutes = require('./src/routes/auth')
 const authMiddleware = require('./src/middleware/auth')
@@ -11,9 +13,7 @@ const prendaRoutes = require('./src/routes/prenda')
 const wishlistRoutes = require('./src/routes/wishlist')
 const { specs, swaggerUi } = require('./src/config/swagger')
 const passport = require('passport')
-require('./src/config/passport')
 
-dotenv.config()
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -21,6 +21,7 @@ const PORT = process.env.PORT || 3000
 //Middlewares
 app.use(cors())
 app.use(express.json())
+require('./src/config/passport' )
 
 //rutas
 app.use('/api/auth', authRoutes)
@@ -41,6 +42,15 @@ app.get('/', (req, res) => {
 app.get('/api/perfil', authMiddleware, (req, res) => {
   res.json({ message: 'Ruta protegida', usuario: req.usuario })
 })
+
+app.use((err, req, res, next) => {
+  console.error("Error detectado en el servidor:", err.stack);
+  res.status(500).json({
+    success: false,
+    message: 'Hubo un problema interno en el servidor.',
+    error: process.env.NODE_ENV === 'development' ? err.message : {}
+  });
+});
 
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`)
