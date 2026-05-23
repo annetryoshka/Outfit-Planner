@@ -1,8 +1,8 @@
-import React, { useState, useRef, useEffect } from 'react'
+import React, { useState, useRef, useEffect, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import Masonry from 'react-masonry-css'
 import { Search, X, Send, ShoppingBag, ExternalLink, Heart, Palette, Sparkles, LayoutGrid, Menu } from 'lucide-react'
-import logo3 from '../assets/logo3.png'
+import logo6 from '../assets/logo6.png'
 import flowerNormal from '../assets/flower2.png'
 import flowerHover from '../assets/flower1.png'
 import wallpaper5 from '../assets/wallpaper5.png'
@@ -137,24 +137,131 @@ const HomePage = () => {
   // ── Estado de búsqueda ──
   const [busqueda, setBusqueda] = useState('')
 
+  // ID del usuario logueado — decodificado del JWT en localStorage
+  const miUserId = (() => {
+    try {
+      const token = localStorage.getItem('token')
+      if (!token) return null
+      const payload = JSON.parse(atob(token.split('.')[1]))
+      return payload.id ?? payload.sub ?? payload.user_id ?? null
+    } catch { return null }
+  })()
+
+  // Etiquetas activas del banner (multi-select, actúan como filtro combinado)
+  const [selectedTags, setSelectedTags] = useState([])
+
+  // Etiquetas dinámicas — diccionario de deseos por clima intersectado con el clóset real
+  const etiquetasDinamicas = useMemo(() => {
+    if (!clima?.clima?.temperatura) return []
+    const temp = clima.clima.temperatura
+    const n = (s) => (s || '').toLowerCase().trim()
+
+    // Diccionario de deseos por rango de temperatura
+    // (NO incluye tipos genéricos: superior/inferior/calzado/accesorio/otros)
+    const DESEOS = temp < 15
+      ? {
+          categorias: ['abrigo', 'chaquetas', 'bufanda', 'guantes', 'pantalón', 'jeans'],
+          materiales: ['lana', 'polar', 'corderoy', 'cuero'],
+          temporadas: ['invierno', 'otoño'],
+          colores:    ['negro', 'marrón', 'gris', 'azul', 'morado'],
+        }
+      : temp <= 22
+      ? {
+          categorias: ['camisa', 'blusa', 'chaquetas', 'jeans', 'pantalón', 'bolso'],
+          materiales: ['algodón', 'denim', 'poliéster'],
+          temporadas: ['primavera', 'otoño'],
+          colores:    ['beige', 'rosa', 'celeste', 'blanco', 'verde claro'],
+        }
+      : {
+          categorias: ['shorts', 'vestido', 'falda', 'polera', 'blusa', 'camisa'],
+          materiales: ['lino', 'seda', 'algodón'],
+          temporadas: ['verano', 'primavera'],
+          colores:    ['blanco', 'amarillo', 'rosa', 'celeste', 'verde'],
+        }
+
+    // Todas las palabras deseadas en orden de prioridad visual
+    const palabrasDeseadas = [
+      ...DESEOS.categorias,
+      ...DESEOS.materiales,
+      ...DESEOS.temporadas,
+      ...DESEOS.colores,
+    ]
+
+    // Construye un Set con todos los valores normalizados del clóset del usuario
+    const fuente = misPrendas.length > 0 ? misPrendas : prendasPublicas
+    const enCloset = new Set()
+    for (const item of fuente) {
+      ;[item.categoria, item.material, item.temporada, item.color].forEach(v => {
+        const norm = n(v)
+        if (norm) enCloset.add(norm)
+      })
+    }
+
+    // Intersección: solo las palabras deseadas que existen en el clóset, hasta 7
+    const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1)
+    const etiquetas = []
+    for (const palabra of palabrasDeseadas) {
+      if (enCloset.has(palabra)) {
+        etiquetas.push(cap(palabra))
+        if (etiquetas.length >= 7) break
+      }
+    }
+
+    // Si el clóset tiene pocas coincidencias, completa con las palabras deseadas directamente
+    if (etiquetas.length < 4) {
+      for (const palabra of palabrasDeseadas) {
+        const label = cap(palabra)
+        if (!etiquetas.includes(label)) {
+          etiquetas.push(label)
+          if (etiquetas.length >= 7) break
+        }
+      }
+    }
+
+    return etiquetas
+  }, [clima, misPrendas, prendasPublicas])
+
   // Seleccion de fuente segun pestana activa
   // 'todos'       -> prendasPublicas (viene de GET /prendas/publicas — todos los usuarios)
   // 'mis-prendas' -> misPrendas     (viene de GET /prendas          — solo el usuario logueado)
   const prendasPorTab = activeTab === 'todos' ? prendasPublicas : misPrendas
 
-  // Busqueda local sobre nombre, tipo, color, marca y categoria
-  const prendasMostradas = busqueda.trim() === ''
-    ? prendasPorTab
-    : prendasPorTab.filter(item => {
-        const q = busqueda.toLowerCase()
-        return (
-          item.nombre?.toLowerCase().includes(q)   ||
-          item.tipo?.toLowerCase().includes(q)      ||
-          item.color?.toLowerCase().includes(q)     ||
-          item.marca?.toLowerCase().includes(q)     ||
-          item.categoria?.toLowerCase().includes(q)
-        )
-      })
+  // Filtro acumulativo AND: cada tag seleccionado debe estar en algún campo de la prenda
+  const prendasMostradas = useMemo(() => {
+    let lista = prendasPorTab
+
+    // Multi-select: la prenda debe cumplir TODOS los tags seleccionados
+    if (selectedTags.length > 0) {
+      lista = lista.filter(item =>
+        selectedTags.every(tag => {
+          const q = tag.toLowerCase()
+          return (
+            item.tipo?.toLowerCase().includes(q)      ||
+            item.categoria?.toLowerCase().includes(q) ||
+            item.material?.toLowerCase().includes(q)  ||
+            item.temporada?.toLowerCase().includes(q) ||
+            item.color?.toLowerCase().includes(q)     ||
+            item.nombre?.toLowerCase().includes(q)
+          )
+        })
+      )
+    }
+
+    // Barra de búsqueda convive con el multi-select
+    if (busqueda.trim()) {
+      const q = busqueda.toLowerCase()
+      lista = lista.filter(item =>
+        item.nombre?.toLowerCase().includes(q)    ||
+        item.tipo?.toLowerCase().includes(q)      ||
+        item.categoria?.toLowerCase().includes(q) ||
+        item.material?.toLowerCase().includes(q)  ||
+        item.temporada?.toLowerCase().includes(q) ||
+        item.color?.toLowerCase().includes(q)     ||
+        item.marca?.toLowerCase().includes(q)
+      )
+    }
+    return lista
+  }, [prendasPorTab, busqueda, selectedTags])
 
   return (
     <div className="flex flex-col w-full h-screen overflow-hidden">
@@ -174,7 +281,7 @@ const HomePage = () => {
               onClick={() => navigate('/')}
               className="h-10 w-auto cursor-pointer hover:opacity-90 transition-all flex-shrink-0"
             >
-              <img src={logo3} alt="PinWand" className="h-full w-auto object-contain" />
+              <img src={logo6} alt="PinWand" className="h-full w-auto object-contain" />
             </button>
 
             {/* Botón 'Todos' */}
@@ -338,20 +445,40 @@ const HomePage = () => {
 
               {/* Banner clima — solo en pestaña 'Todos' */}
               {activeTab === 'todos' && !loadingClima && clima && (
-                <div className="flex-1 bg-white rounded-2xl shadow-sm border border-[#f6ccfa] px-6 py-4 flex items-center gap-4">
+                <div className="flex-1 bg-white rounded-xl shadow-sm border border-[#f6ccfa] px-5 py-3 flex items-center gap-4">
+                  {/* Bloque izquierdo: temp + ciudad */}
                   <div className="flex flex-col flex-shrink-0">
-                    <span className="text-xs text-gray-400 uppercase tracking-widest">Clima en {clima.clima.ciudad}</span>
-                    <span className="text-2xl font-bold text-[#9f8aef]">{clima.clima.temperatura}°C</span>
-                    <span className="text-sm text-gray-500 capitalize">{clima.clima.descripcion}</span>
+                    <span className="text-[0.6rem] text-gray-400 uppercase tracking-widest leading-tight">Clima en {clima.clima.ciudad}</span>
+                    <span className="text-lg font-bold text-[#9f8aef] leading-tight">{clima.clima.temperatura}°C</span>
+                    <span className="text-[0.6rem] text-gray-500 capitalize leading-tight">{clima.clima.descripcion}</span>
                   </div>
-                  <div className="w-px h-12 bg-[#f6ccfa]" />
-                  <div className="flex-1">
-                    <p className="text-sm font-medium text-gray-700 mb-2">{clima.sugerencia.mensaje}</p>
-                    <div className="flex flex-wrap gap-2">
-                      {clima.sugerencia.prendas.map((p, i) => (
-                        <span key={i} className="bg-[#f6ccfa]/50 text-[#9f8aef] text-xs px-3 py-1 rounded-full">{p}</span>
-                      ))}
-                    </div>
+                  <div className="w-px h-6 bg-[#f6ccfa] flex-shrink-0" />
+                  {/* Bloque derecho: mensaje + etiquetas dinámicas clickeables */}
+                  <div className="flex-1 min-w-0 flex items-center gap-3 flex-wrap">
+                    <p className="text-sm font-semibold text-gray-700 flex-shrink-0">{clima.sugerencia.mensaje}</p>
+                    {etiquetasDinamicas.length > 0
+                      ? etiquetasDinamicas.map((etiqueta, i) => (
+                          <button
+                            key={i}
+                            type="button"
+                            onClick={() => setSelectedTags(prev =>
+                              prev.includes(etiqueta)
+                                ? prev.filter(t => t !== etiqueta)
+                                : [...prev, etiqueta]
+                            )}
+                            className={`text-sm px-4 py-1.5 rounded-full border shadow-sm whitespace-nowrap font-medium transition-all duration-200 ${
+                              selectedTags.includes(etiqueta)
+                                ? 'bg-[#9f8aef] text-white border-[#9f8aef]'
+                                : 'bg-white text-gray-900 border-[#9f8aef] hover:bg-[#f6ccfa]/40'
+                            }`}
+                          >
+                            {etiqueta}
+                          </button>
+                        ))
+                      : clima.sugerencia.prendas.map((p, i) => (
+                          <span key={i} className="bg-white text-gray-900 text-sm px-4 py-1.5 rounded-full border border-[#9f8aef] shadow-sm whitespace-nowrap font-medium">{p}</span>
+                        ))
+                    }
                   </div>
                 </div>
               )}
@@ -446,10 +573,21 @@ const HomePage = () => {
                               : <div className="w-full h-48 bg-gradient-to-br from-[#f6ccfa] to-[#c2e1f9] flex items-center justify-center text-4xl">👕</div>
                             }
                             <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                            <button onClick={e => e.stopPropagation()}
-                              className="absolute top-4 right-4 bg-[#79d063] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                              Guardar
-                            </button>
+                            {String(item.user_id) === String(miUserId)
+                              ? (
+                                <button
+                                  onClick={e => { e.stopPropagation(); navigate(`/editar-prenda/${item.id}`) }}
+                                  className="absolute top-4 right-4 bg-[#9f8aef] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                  Editar
+                                </button>
+                              ) : (
+                                <button
+                                  onClick={e => { e.stopPropagation(); console.log('Guardar prenda', item.id) }}
+                                  className="absolute top-4 right-4 bg-[#79d063] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
+                                  Guardar
+                                </button>
+                              )
+                            }
                           </div>
                           <div className="p-3">
                             <p className="text-sm font-medium text-gray-700 truncate">{item.nombre}</p>

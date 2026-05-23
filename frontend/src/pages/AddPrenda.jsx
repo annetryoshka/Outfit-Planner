@@ -6,11 +6,11 @@ import authService from '../services/authService'
 import { normalizeForDb, alignValueToOptions } from '../utils/normalizeForDb'
 
 const tipos = ['Superior', 'Inferior', 'Calzado', 'Accesorio', 'Otros']
-const categorias = ['Camisa', 'Pantalón', 'Shorts', 'Vestido', 'Abrigo', 'Falda', 'Blusa', 'Jeans', 'Chaquetas']
-const colores = ['Negro', 'Blanco', 'Gris', 'Azul', 'Rojo', 'Verde', 'Beige', 'Marrón', 'Rosa']
+const categorias = ['Camisa', 'Polera', 'Pantalón', 'Shorts', 'Vestido', 'Abrigo', 'Falda', 'Blusa', 'Jeans', 'Chaquetas',  'Bolso',  'Bufanda',  'Guantes']
+const colores = ['Negro', 'Celeste', 'Amarillo', 'Blanco', 'Gris', 'Azul', 'Rojo', 'Verde', 'Verde Claro', 'Beige', 'Marrón', 'Rosa',  'Morado']
 const tallas = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
 const temporadas = ['Primavera', 'Verano', 'Otoño', 'Invierno']
-const materiales = ['Algodón', 'Lana', 'Seda', 'Lino', 'Poliéster', 'Denim', 'Cuero']
+const materiales = ['Algodón', 'Lana',  'Polar', 'Corderoy','Seda', 'Lino', 'Poliéster', 'Denim', 'Cuero']
 
 const OPT_TIPOS = tipos.map((t) => ({ value: normalizeForDb(t), label: t }))
 const OPT_CATEGORIAS = categorias.map((c) => ({ value: normalizeForDb(c), label: c }))
@@ -325,9 +325,9 @@ const AddPrenda = () => {
           >
             <ArrowLeft className="w-6 h-6 text-[#9f8aef] group-hover:text-[#ffffff]" />
           </button>
-          <h1 className="text-3xl font-semibold text-gray-900">
-            {isEdit ? 'Editar prenda' : 'Añadir Nueva Prenda'}
-          </h1>
+          <h1 className="text-3xl font-subtitulo text-gray-800">
+  Añadir Nueva Prenda
+</h1>
         </div>
         <div className="w-full h-px bg-[#f6ccfa]" />
       </div>

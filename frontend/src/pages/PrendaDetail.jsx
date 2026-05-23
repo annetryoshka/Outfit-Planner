@@ -53,9 +53,7 @@ const PrendaDetail = () => {
       }
     }
     load()
-    return () => {
-      cancelled = true
-    }
+    return () => { cancelled = true }
   }, [id])
 
   const prendasIzquierda = prendasRelacionadas.slice(0, 6)
@@ -100,7 +98,7 @@ const PrendaDetail = () => {
   }
 
   const currentUser = authService.getCurrentUser()
-  const puedeEditar =
+  const esMia =
     !isFromWishlist &&
     currentUser &&
     prenda.user_id != null &&
@@ -118,20 +116,16 @@ const PrendaDetail = () => {
 
   return (
     <div className="min-h-screen bg-[#ffffff]">
-      {/* Header con Logo y Barra de Búsqueda Pinterest - Sticky */}
+      {/* Header con Logo y Barra de Búsqueda - Sticky */}
       <div className="sticky top-0 z-50 w-full py-4 bg-white shadow-sm">
         <div className="max-w-[1400px] mx-auto flex items-center">
           
-          {/* Logo PinWand - Extremo Izquierdo */}
+          {/* Logo PinWand */}
           <button
             onClick={() => navigate('/')}
             className="h-10 w-auto cursor-pointer mr-6 hover:opacity-90 transition-all"
           >
-            <img
-              src={logo3}
-              alt="PinWand"
-              className="h-full w-auto object-contain"
-            />
+            <img src={logo3} alt="PinWand" className="h-full w-auto object-contain" />
           </button>
 
           {/* Barra de Búsqueda */}
@@ -155,8 +149,8 @@ const PrendaDetail = () => {
           {/* Panel de Información (Súper Pin) */}
           <div className={`
             rounded-[32px] shadow-[0_1px_20px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col mb-6
-            ${isFromWishlist 
-              ? 'bg-gradient-to-b from-[#f6ccfa] from-5% via-[#ffffff] via-20% to-[#ffffff]' 
+            ${isFromWishlist
+              ? 'bg-gradient-to-b from-[#f6ccfa] from-5% via-[#ffffff] via-20% to-[#ffffff]'
               : 'bg-gradient-to-b from-[#fafbad] from-5% via-[#ffffff] via-20% to-[#ffffff]'
             }
           `}>
@@ -177,22 +171,35 @@ const PrendaDetail = () => {
                   <MoreHorizontal className="w-6 h-6 text-gray-800" />
                 </button>
               </div>
+
+              {/* Botón de acción principal — condicional según dueño */}
               {isFromWishlist ? (
+                // Vista desde wishlist → siempre Guardar en Wishlist
                 <button
                   type="button"
-                  className="bg-[#79d063] text-[#ffffff] rounded-full px-6 py-3 font-bold shadow-md hover:bg-[#79d063]/90 transition-all duration-300 text-lg"
+                  className="bg-[#79d063] text-white rounded-full px-6 py-3 font-bold shadow-md hover:bg-[#79d063]/90 transition-all duration-300 text-lg"
                 >
                   Guardar en Wishlist
                 </button>
-              ) : puedeEditar ? (
+              ) : esMia ? (
+                // Es mi prenda → Editar (morado)
                 <button
                   type="button"
                   onClick={() => navigate(`/editar-prenda/${prenda.id}`)}
-                  className="bg-[#79d063] text-[#ffffff] rounded-full px-6 py-3 font-bold shadow-md hover:bg-[#79d063]/90 transition-all duration-300 text-lg"
+                  className="bg-[#9f8aef] text-white rounded-full px-6 py-3 font-bold shadow-md hover:bg-[#9f8aef]/90 transition-all duration-300 text-lg"
                 >
                   Editar
                 </button>
-              ) : null}
+              ) : (
+                // Es de otro usuario → Guardar (verde)
+                <button
+                  type="button"
+                  onClick={() => console.log('Guardar prenda', prenda.id)}
+                  className="bg-[#79d063] text-white rounded-full px-6 py-3 font-bold shadow-md hover:bg-[#79d063]/90 transition-all duration-300 text-lg"
+                >
+                  Guardar
+                </button>
+              )}
             </div>
 
             {/* Contenedor de Imagen */}
@@ -210,11 +217,11 @@ const PrendaDetail = () => {
                 {prenda.nombre}
               </h1>
               
-              {/* Enlace/Link - Solo en modo Wishlist */}
+              {/* Enlace — Solo en modo Wishlist */}
               {isFromWishlist && (
                 <div className="mb-4">
-                  <a 
-                    href="#" 
+                  <a
+                    href="#"
                     className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors text-sm"
                   >
                     <span>Ver producto en tienda</span>
@@ -239,12 +246,8 @@ const PrendaDetail = () => {
             </div>
           </div>
 
-          {/* Masonry de 2 Columnas (debajo del panel) */}
-          <Masonry
-            breakpointCols={2}
-            className="flex gap-6"
-            columnClassName="flex-1"
-          >
+          {/* Masonry debajo del panel */}
+          <Masonry breakpointCols={2} className="flex gap-6" columnClassName="flex-1">
             {prendasIzquierda.map((item) => (
               <div key={item.id} className="mb-4 break-inside-avoid">
                 <div
@@ -260,22 +263,33 @@ const PrendaDetail = () => {
                     className="w-full object-cover rounded-[20px]"
                   />
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-[20px]" />
-                  <button className="absolute top-3 right-3 bg-[#79d063] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-[#79d063]/90 text-sm">
-                    Guardar
-                  </button>
+                  {/* Botón condicional en las miniaturas relacionadas */}
+                  {String(item.user_id) === String(localStorage.getItem('user_id'))
+                    ? (
+                      <button
+                        onClick={e => { e.stopPropagation(); navigate(`/editar-prenda/${item.id}`) }}
+                        className="absolute top-3 right-3 bg-[#9f8aef] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-sm"
+                      >
+                        Editar
+                      </button>
+                    ) : (
+                      <button
+                        onClick={e => { e.stopPropagation(); console.log('Guardar prenda', item.id) }}
+                        className="absolute top-3 right-3 bg-[#79d063] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-sm"
+                      >
+                        Guardar
+                      </button>
+                    )
+                  }
                 </div>
               </div>
             ))}
           </Masonry>
         </div>
 
-        {/* Bloque Derecho (col-span-2): Masonry de 2 Columnas */}
+        {/* Bloque Derecho (col-span-2): Masonry */}
         <div className="col-span-2">
-          <Masonry
-            breakpointCols={2}
-            className="flex gap-6"
-            columnClassName="flex-1"
-          >
+          <Masonry breakpointCols={2} className="flex gap-6" columnClassName="flex-1">
             {prendasDerecha.map((item) => (
               <div key={item.id} className="mb-4 break-inside-avoid">
                 <div
@@ -291,15 +305,30 @@ const PrendaDetail = () => {
                     className="w-full object-cover rounded-[20px]"
                   />
                   <div className="absolute inset-0 bg-black/20 opacity-0 group-hover:opacity-100 transition-opacity duration-300 rounded-[20px]" />
-                  <button className="absolute top-3 right-3 bg-[#79d063] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 hover:bg-[#79d063]/90 text-sm">
-                    Guardar
-                  </button>
+                  {/* Botón condicional en las miniaturas relacionadas */}
+                  {String(item.user_id) === String(localStorage.getItem('user_id'))
+                    ? (
+                      <button
+                        onClick={e => { e.stopPropagation(); navigate(`/editar-prenda/${item.id}`) }}
+                        className="absolute top-3 right-3 bg-[#9f8aef] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-sm"
+                      >
+                        Editar
+                      </button>
+                    ) : (
+                      <button
+                        onClick={e => { e.stopPropagation(); console.log('Guardar prenda', item.id) }}
+                        className="absolute top-3 right-3 bg-[#79d063] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300 text-sm"
+                      >
+                        Guardar
+                      </button>
+                    )
+                  }
                 </div>
               </div>
             ))}
           </Masonry>
         </div>
-        
+
       </div>
     </div>
   )
