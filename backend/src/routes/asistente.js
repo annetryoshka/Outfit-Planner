@@ -31,7 +31,7 @@ router.use(authMiddleware)
  *         description: Respuesta del asistente
  *       400:
  *         description: Mensaje requerido
- */
+ * */
 router.post('/chat', asistenteController.chat)
 
 module.exports = router

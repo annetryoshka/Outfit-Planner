@@ -1,12 +1,13 @@
 const pool = require('../config/database')
 
 const User = {
-  async create({ nombre, apellido, email, password, foto_perfil = null}) {
+  // 1. CORREGIDO: Se añade 'fondo' por defecto por si no se envía al crear
+  async create({ nombre, apellido, email, password, foto_perfil = null, fondo = null }) {
     const result = await pool.query(
-      `INSERT INTO users (nombre, apellido, email, password, foto_perfil) 
-       VALUES ($1, $2, $3, $4, $5) 
-       RETURNING id, nombre, apellido, email, foto_perfil, created_at`,
-      [nombre, apellido, email, password, foto_perfil]
+      `INSERT INTO users (nombre, apellido, email, password, foto_perfil, fondo) 
+       VALUES ($1, $2, $3, $4, $5, $6) 
+       RETURNING id, nombre, apellido, email, foto_perfil, fondo, created_at`,
+      [nombre, apellido, email, password, foto_perfil, fondo]
     )
     return result.rows[0]
   },
@@ -21,19 +22,20 @@ const User = {
 
   async findById(id) {
     const result = await pool.query(
-      'SELECT id, nombre, apellido, email, foto_perfil, ciudad, bio, es_privado, created_at FROM users WHERE id = $1',
+      'SELECT id, nombre, apellido, email, foto_perfil, fondo, ciudad, bio, es_privado, created_at FROM users WHERE id = $1',
       [id]
     )
     return result.rows[0]
   },
 
-  async update(id, { nombre, apellido, foto_perfil, ciudad, bio, es_privado }) {
+  // 2. CORREGIDO: Ahora recibe, actualiza y retorna el 'apellido'
+  async update(id, { nombre, apellido, foto_perfil, ciudad, bio, es_privado, fondo }) {
     const result = await pool.query(
       `UPDATE users 
-       SET nombre=$1, apellido=$2, foto_perfil=$3, ciudad=$4, bio=$5, es_privado=$6
-       WHERE id=$7 
-       RETURNING id, nombre, apellido, email, foto_perfil, ciudad, bio, es_privado, created_at`,
-      [nombre, apellido, foto_perfil, ciudad, bio, es_privado, id]
+       SET nombre=$1, apellido=$2, foto_perfil=$3, ciudad=$4, bio=$5, es_privado=$6, fondo=$7
+       WHERE id=$8 
+       RETURNING id, nombre, apellido, email, foto_perfil, ciudad, bio, es_privado, fondo, created_at`,
+      [nombre, apellido, foto_perfil, ciudad, bio, es_privado, fondo, id]
     )
     return result.rows[0]
   }
