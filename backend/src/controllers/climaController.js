@@ -1,4 +1,7 @@
 const { getClima, getClimaPorCoordenadas } = require('../services/weatherService')
+const { GoogleGenAI } = require('@google/genai');
+
+const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const climaController = {
   async obtenerClima(req, res) {
@@ -76,68 +79,94 @@ const climaController = {
     }
   },
 
-async outfitInteligente(req, res) {
-  try {
-    const { lat, lon } = req.query
-    const pool = require('../config/database')
-    const clima = await getClimaPorCoordenadas(lat, lon)
-    const user_id = req.usuario.id
+  async outfitInteligente(req, res) {
+    try {
+      const { lat, lon } = req.query
+      const pool = require('../config/database')
+      const clima = await getClimaPorCoordenadas(lat, lon)
+      const user_id = req.usuario.id
 
-    // Mapear clima a temporada
-    const temporadaMap = {
-      muy_frio: 'invierno',
-      frio: 'invierno',
-      templado: 'todo el año',
-      calido: 'verano',
-      caliente: 'verano'
-    }
+      const temporadaMap = {
+        muy_frio: 'invierno',
+        frio: 'invierno',
+        templado: 'todo el año',
+        calido: 'verano',
+        caliente: 'verano'
+      }
 
-    const temporada = temporadaMap[clima.clasificacion]
+      const temporada = temporadaMap[clima.clasificacion]
 
-    // Buscar prendas del usuario por tipo
-    const tipos = ['top', 'bottom', 'outerwear', 'shoes']
-    const outfit = {}
-
-    for (const tipo of tipos) {
       const result = await pool.query(
         `SELECT * FROM prendas 
          WHERE user_id = $1 
-         AND tipo = $2 
-         AND (temporada = $3 OR temporada = 'todo el año' OR temporada IS NULL)
-         ORDER BY RANDOM()
-         LIMIT 1`,
-        [user_id, tipo, temporada]
+         AND (temporada = $2 OR temporada = 'todo el año' OR temporada IS NULL)`,
+        [user_id, temporada]
       )
-      if (result.rows.length > 0) {
-        outfit[tipo] = result.rows[0]
+
+      const todasLasPrendas = result.rows
+      const outfit = {}
+
+      const mensajes = {
+        muy_frio: `¡Hace ${clima.temperatura}°C en ${clima.ciudad}! Abrígate mucho 🧥`,
+        frio: `Hace ${clima.temperatura}°C en ${clima.ciudad}, lleva algo de abrigo 🌬️`,
+        templado: `Clima perfecto en ${clima.ciudad}, ${clima.temperatura}°C ☀️`,
+        calido: `Hace ${clima.temperatura}°C en ${clima.ciudad}, vístete ligero 😎`,
+        caliente: `¡Mucho calor en ${clima.ciudad}! ${clima.temperatura}°C 🌡️`
       }
+
+      if (todasLasPrendas.length > 0) {
+        const response = await ai.models.generateContent({
+          model: 'gemini-2.5-flash',
+          contents: `Clima actual en ${clima.ciudad}: ${clima.temperatura}°C, Clasificación: ${clima.clasificacion}.`,
+          config: {
+            systemInstruction: `Eres el motor de estilismo de PinWand. Tu labor es armar el mejor outfit combinando prendas del clóset del usuario para el clima actual.
+            Debes intentar seleccionar máximo un elemento de cada tipo ('top', 'bottom', 'outerwear', 'shoes') si están disponibles, buscando que los colores y texturas hagan armonía visual.
+
+            INVENTARIO DE PRENDAS DISPONIBLES EN LA BASE DE DATOS:
+            ${JSON.stringify(todasLasPrendas)}
+
+            DEBES DEVOLVER EXCLUSIVAMENTE UN OBJETO JSON con la siguiente estructura, sin textos extras ni markdown:
+            {
+              "idsSeleccionados": [1, 4, 7],
+              "consejoEstilo": "Tu consejo de por qué combinan de forma linda estas prendas específicas."
+            }`,
+            responseMimeType: "application/json"
+          }
+        });
+
+        const decisionIA = JSON.parse(response.text);
+        
+        todasLasPrendas.forEach(prenda => {
+          if (decisionIA.idsSeleccionados.includes(prenda.id)) {
+            outfit[prenda.tipo] = prenda;
+          }
+        });
+
+        const tienePrendas = Object.keys(outfit).length > 0
+
+        return res.json({
+          clima,
+          outfit_del_dia: outfit,
+          mensaje: mensajes[clima.clasificacion],
+          tiene_prendas: tienePrendas,
+          consejo: decisionIA.consejoEstilo || `Outfit armado con ${Object.keys(outfit).length} prendas de tu inventario`
+        });
+      }
+
+
+      res.json({
+        clima,
+        outfit_del_dia: {},
+        mensaje: mensajes[clima.clasificacion],
+        tiene_prendas: false,
+        consejo: 'No tienes prendas en tu inventario para este clima, añade algunas!'
+      })
+
+    } catch (error) {
+      console.error('Error al generar outfit inteligente:', error);
+      res.status(500).json({ message: error.message })
     }
-
-    // Mensaje según clima
-    const mensajes = {
-      muy_frio: `¡Hace ${clima.temperatura}°C en ${clima.ciudad}! Abrígate mucho 🧥`,
-      frio: `Hace ${clima.temperatura}°C en ${clima.ciudad}, lleva algo de abrigo 🌬️`,
-      templado: `Clima perfecto en ${clima.ciudad}, ${clima.temperatura}°C ☀️`,
-      calido: `Hace ${clima.temperatura}°C en ${clima.ciudad}, vístete ligero 😎`,
-      caliente: `¡Mucho calor en ${clima.ciudad}! ${clima.temperatura}°C 🌡️`
-    }
-
-    const tienePrendas = Object.keys(outfit).length > 0
-
-    res.json({
-      clima,
-      outfit_del_dia: outfit,
-      mensaje: mensajes[clima.clasificacion],
-      tiene_prendas: tienePrendas,
-      consejo: tienePrendas
-        ? `Outfit armado con ${Object.keys(outfit).length} prendas de tu inventario`
-        : 'No tienes prendas en tu inventario para este clima, añade algunas!'
-    })
-
-  } catch (error) {
-    res.status(500).json({ message: error.message })
   }
-}
 }
 
 module.exports = climaController
