@@ -4,11 +4,13 @@ import authService from '../services/authService';
 import { supabase } from '../services/supabaseClient';
 import { 
   User, MapPin, Mail, Calendar, Lock, Globe, Camera, 
-  LogOut, Plus, Shirt, Grid, Search, Pencil, Check, X
+  LogOut, Plus, Shirt, Grid, Search, Pencil, Check, X, Trash2
 } from 'lucide-react';
+import { useSearchParams } from 'react-router-dom'
 import prendaService from '../services/prendaService';
 import outfitService from '../services/outfitService';
 import guardadoService from '../services/guardadoService';
+import tryonService from '../services/tryonService';
 
 const Profile = () => {
   const [user, setUser] = useState(null);
@@ -22,8 +24,11 @@ const Profile = () => {
   const [prendas, setPrendas] = useState([]);
   const [outfits, setOutfits] = useState([]);
   const [guardados, setGuardados] = useState([]);
+  const [pruebas, setPruebas] = useState([]);
   const [wardrobeLoading, setWardrobeLoading] = useState(false);
   const [guardadosLoading, setGuardadosLoading] = useState(false);
+  const [tryonLoading, setTryonLoading] = useState(false);
+  const [pruebaSeleccionada, setPruebaSeleccionada] = useState(null)
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todas');
@@ -110,6 +115,43 @@ const Profile = () => {
       return () => clearTimeout(timer);
     }
   }, [statusMessage]);
+
+  // Carga pruebas de try-on cuando el usuario navega a esa tab
+  useEffect(() => {
+    if (armarioTab !== 'pruebas' || !user?.id) return;
+    let cancelled = false;
+    setTryonLoading(true);
+    tryonService.obtenerMisPruebas()
+      .then(data => {
+        if (cancelled) return;
+        setPruebas(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setPruebas([]);
+      })
+      .finally(() => {
+        if (!cancelled) setTryonLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [armarioTab, user?.id]);
+
+  // Función para eliminar prueba desde el modal
+  const eliminarPrueba = async (id) => {
+    if (!confirm('¿Eliminar esta prueba virtual?')) return
+    try {
+      await tryonService.eliminar(id)
+      setPruebas(prev => prev.filter(p => p.id !== id))
+      setPruebaSeleccionada(null)
+    } catch {
+      alert('Error al eliminar la prueba')
+    }
+  }
+  const [searchParams] = useSearchParams()
+
+  useEffect(() => {
+    const tab = searchParams.get('tab')
+    if (tab) setArmarioTab(tab)
+  }, [searchParams])
 
   const handleDesguardar = async (prendaId) => {
     try {
@@ -572,12 +614,129 @@ const Profile = () => {
 
           {/* TAB: TRY-ON */}
           {armarioTab === 'pruebas' && (
-            <div className="bg-white border border-gray-100 rounded-2xl py-16 px-4 text-center shadow-sm max-w-md mx-auto">
-              <Grid className="w-8 h-8 text-morado mx-auto mb-2" />
-              <h4 className="text-sm font-bold text-gray-900 uppercase tracking-wide">Probador Inteligente AI</h4>
-              <p className="text-gray-400 text-xs mt-1.5 max-w-xs mx-auto leading-relaxed">
-                Próximamente podrás superponer tus prendas digitales sobre modelos personalizados.
-              </p>
+            <div className="max-w-5xl mx-auto pb-8">
+
+              {/* Header con botón */}
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                  Pruebas virtuales ({pruebas.length})
+                </h3>
+                <button
+                  onClick={() => navigate('/probar-prenda')}
+                  className="inline-flex items-center gap-1.5 rounded-xl bg-gray-950 text-white px-4 py-2 text-sm font-bold hover:bg-gray-800 transition-colors shadow-sm"
+                >
+                  <Plus className="w-4 h-4" /> Probar prenda
+                </button>
+              </div>
+
+              {tryonLoading ? (
+                <div className="text-center py-16">
+                  <div className="w-6 h-6 border-2 border-morado border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-gray-400 text-sm font-medium">Cargando pruebas...</p>
+                </div>
+              ) : pruebas.length === 0 ? (
+                <div className="bg-white border border-dashed border-gray-200 rounded-2xl py-12 px-4 text-center shadow-sm max-w-md mx-auto">
+                  <p className="text-3xl mb-2">👗</p>
+                  <p className="text-gray-400 text-sm font-medium">No tienes pruebas virtuales aún</p>
+                  <p className="text-xs text-gray-300 mt-1">Prueba cómo te quedaría una prenda</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
+                  {pruebas.map((prueba) => (
+                    <button
+                      key={prueba.id}
+                      onClick={() => setPruebaSeleccionada(prueba)}  // abre modal
+                      className="group bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-morado/40 transition-all hover:shadow-md text-left shadow-sm"
+                    >
+                      <div className="aspect-[2/3] bg-gray-50 flex items-center justify-center overflow-hidden">
+                        {prueba.imagen_url ? (
+                          <img
+                            src={prueba.imagen_url}
+                            alt="Prueba virtual"
+                            className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                          />
+                        ) : (
+                          <span className="text-3xl">👗</span>
+                        )}
+                      </div>
+                      <div className="p-3 border-t border-gray-50">
+                        <p className="text-xs text-gray-400 font-medium">
+                          {new Date(prueba.created_at).toLocaleDateString('es-ES', {
+                            day: 'numeric',
+                            month: 'short',
+                            year: 'numeric'
+                          })}
+                        </p>
+                        {prueba.configuracion_prendas?.tipo_prenda && (
+                          <p className="text-[10px] text-gray-300 uppercase font-bold tracking-wider mt-0.5">
+                            {prueba.configuracion_prendas.tipo_prenda}
+                          </p>
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+
+              {/* Modal de prueba */}
+              {pruebaSeleccionada && (
+                <div
+                  className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4"
+                  onClick={(e) => e.target === e.currentTarget && setPruebaSeleccionada(null)}
+                >
+                  <div className="bg-white rounded-3xl overflow-hidden max-w-lg w-full shadow-2xl">
+                    {/* Header modal */}
+                    <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+                      <div>
+                        <p className="font-bold text-gray-900">Prueba virtual</p>
+                        <p className="text-xs text-gray-400">
+                          {new Date(pruebaSeleccionada.created_at).toLocaleDateString('es-ES', {
+                            weekday: 'long', day: 'numeric', month: 'long', year: 'numeric'
+                          })}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        {/* Botón eliminar */}
+                        <button
+                          onClick={() => eliminarPrueba(pruebaSeleccionada.id)}
+                          className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center hover:bg-red-100 transition-colors"
+                          title="Eliminar prueba"
+                        >
+                          <Trash2 className="w-4 h-4 text-red-400" />
+                        </button>
+                        {/* Botón cerrar */}
+                        <button
+                          onClick={() => setPruebaSeleccionada(null)}
+                          className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
+                        >
+                          <X className="w-4 h-4 text-gray-500" />
+                        </button>
+                      </div>
+                    </div>
+
+                    {/* Imagen resultado */}
+                    <div className="bg-gray-50 flex items-center justify-center p-4">
+                      <img
+                        src={pruebaSeleccionada.imagen_url}
+                        alt="Resultado try-on"
+                        className="max-h-[60vh] object-contain rounded-2xl"
+                      />
+                    </div>
+
+                    {/* Info prenda */}
+                    {pruebaSeleccionada.configuracion_prendas && (
+                      <div className="px-6 py-4 border-t border-gray-50">
+                        <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">
+                          Prenda probada
+                        </p>
+                        <p className="text-sm text-gray-600 capitalize">
+                          {pruebaSeleccionada.configuracion_prendas.tipo_prenda || 'Sin info'}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           )}
 

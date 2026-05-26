@@ -14,6 +14,7 @@ import ScrollToTop from './components/ScrollToTop'
 import CalendarioPage from './pages/CalendarioPage'
 import LienzoPage from './pages/LienzoPage'
 import DashboardPage from './pages/DashboardPage'
+import TryOnPrenda from './pages/TryOnPrenda'
 import { useEffect } from 'react'
 
 function AppContent() {
@@ -50,6 +51,7 @@ function AppContent() {
           <Route path="/calendario" element={<CalendarioPage />} />
           <Route path="/lienzo/:id" element={<LienzoPage />} />
           <Route path="/dashboard" element={<ProtectedRoute><DashboardPage /></ProtectedRoute>} />
+          <Route path="/probar-prenda" element={<ProtectedRoute><TryOnPrenda /></ProtectedRoute>} />
         </Routes>
       </div>
 
