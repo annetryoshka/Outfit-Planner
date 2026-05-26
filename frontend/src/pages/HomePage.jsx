@@ -228,7 +228,7 @@ const HomePage = () => {
 
   try {
     // 3. Llamamos al servicio (pasa tus prendas reales aquí si tienes el estado)
-    const respuestaTexto = await asistenteService.chat(mensajeAEnviar, prendas || []);
+    const respuestaTexto = await asistenteService.chat(mensajeAEnviar, []);
 
     // 4. Creamos el objeto de respuesta de la IA usando '.content' para que tu JSX lo lea bien
     const nuevoMensajeIA = { 
