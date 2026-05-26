@@ -1,12 +1,11 @@
 import React, { useEffect, useState, useRef } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import authService from '../services/authService';
 import { supabase } from '../services/supabaseClient';
 import { 
   User, MapPin, Mail, Calendar, Lock, Globe, Camera, 
   LogOut, Plus, Shirt, Grid, Search, Pencil, Check, X, Trash2
 } from 'lucide-react';
-import { useSearchParams } from 'react-router-dom'
 import prendaService from '../services/prendaService';
 import outfitService from '../services/outfitService';
 import guardadoService from '../services/guardadoService';
@@ -28,7 +27,7 @@ const Profile = () => {
   const [wardrobeLoading, setWardrobeLoading] = useState(false);
   const [guardadosLoading, setGuardadosLoading] = useState(false);
   const [tryonLoading, setTryonLoading] = useState(false);
-  const [pruebaSeleccionada, setPruebaSeleccionada] = useState(null)
+  const [pruebaSeleccionada, setPruebaSeleccionada] = useState(null);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todas');
@@ -37,6 +36,12 @@ const Profile = () => {
   const fileInputRef = useRef(null);
   const backgroundInputRef = useRef(null);
   const navigate = useNavigate();
+
+  // ✅ NUEVO: detectar si estamos en /perfil/:userId
+  const { userId } = useParams();
+  const currentLoggedUser = authService.getCurrentUser();
+  // isOwner = true si es mi propio perfil, false si estoy viendo el de otro
+  const isOwner = !userId || (currentLoggedUser && String(currentLoggedUser.id) === String(userId));
 
   const coloresFiltro = [
     { nombre: 'Todos', clase: 'bg-gradient-to-tr from-celeste via-rosado to-amarillo border-gray-200' },
@@ -50,39 +55,78 @@ const Profile = () => {
     { nombre: 'Amarillo', clase: 'bg-amarillo border-transparent' },
   ];
 
+  // ✅ NUEVO: carga del usuario — propio o visitado
   useEffect(() => {
-    const currentUser = authService.getCurrentUser();
-    if (!currentUser) {
-      navigate('/login');
+    if (!userId) {
+      // Ruta /perfil — perfil propio
+      const currentUser = authService.getCurrentUser();
+      if (!currentUser) {
+        navigate('/login');
+      } else {
+        setUser(currentUser);
+        setFormData(currentUser);
+      }
     } else {
-      setUser(currentUser);
-      setFormData(currentUser);
+      // Ruta /perfil/:userId — perfil ajeno, cargar desde Supabase
+      const loadVisitedProfile = async () => {
+        const { data, error } = await supabase
+          .from('users') // tabla correcta según el schema
+          .select('id, nombre, apellido, foto_perfil, fondo, ciudad, bio, es_privado, created_at')
+          // ⚠️ No seleccionamos email ni password por seguridad
+          .eq('id', userId)
+          .single();
+        if (error || !data) {
+          console.error('No se encontró el perfil:', error?.message);
+          // Mostramos un estado vacío en vez de redirigir
+          setUser(null);
+        } else {
+          setUser(data);
+          setFormData(data);
+        }
+      };
+      loadVisitedProfile();
     }
-  }, [navigate]);
+  }, [userId, navigate]);
 
-  // Carga prendas y outfits del usuario
+  // Carga prendas y outfits del usuario visitado (o propio)
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
     setWardrobeLoading(true);
-    Promise.all([
-      prendaService.obtenerTodas().catch(() => []),
-      outfitService.obtenerTodos().catch(() => []),
-    ])
-      .then(([p, o]) => {
-        if (cancelled) return;
-        setPrendas(Array.isArray(p) ? p : []);
-        setOutfits(Array.isArray(o) ? o : []);
-      })
-      .finally(() => {
-        if (!cancelled) setWardrobeLoading(false);
-      });
-    return () => { cancelled = true; };
-  }, [user?.id]);
 
-  // Carga guardados del usuario desde la API
+    if (isOwner) {
+      // Para el dueño usamos los servicios que ya filtran por sesión
+      Promise.all([
+        prendaService.obtenerTodas().catch(() => []),
+        outfitService.obtenerTodos().catch(() => []),
+      ])
+        .then(([p, o]) => {
+          if (cancelled) return;
+          setPrendas(Array.isArray(p) ? p : []);
+          setOutfits(Array.isArray(o) ? o : []);
+        })
+        .finally(() => { if (!cancelled) setWardrobeLoading(false); });
+    } else {
+      // Para visitantes: solo prendas públicas y outfits públicos del usuario visitado
+      Promise.all([
+        supabase.from("prendas").select("*").eq("user_id", user.id).eq("publico", true).then(({ data }) => data || []),
+        supabase.from("outfits").select("*").eq("user_id", user.id).eq("es_publico", true).then(({ data }) => data || []),
+      ])
+        .then(([p, o]) => {
+          if (cancelled) return;
+          setPrendas(Array.isArray(p) ? p : []);
+          setOutfits(Array.isArray(o) ? o : []);
+        })
+        .catch(() => { if (!cancelled) { setPrendas([]); setOutfits([]); } })
+        .finally(() => { if (!cancelled) setWardrobeLoading(false); });
+    }
+
+    return () => { cancelled = true; };
+  }, [user?.id, isOwner]);
+
+  // Carga guardados — solo para el dueño
   useEffect(() => {
-    if (!user?.id) return;
+    if (!user?.id || !isOwner) return;
     let cancelled = false;
     setGuardadosLoading(true);
     guardadoService.obtenerMisGuardados()
@@ -90,24 +134,20 @@ const Profile = () => {
         if (cancelled) return;
         setGuardados(Array.isArray(data) ? data : []);
       })
-      .catch(() => {
-        if (!cancelled) setGuardados([]);
-      })
-      .finally(() => {
-        if (!cancelled) setGuardadosLoading(false);
-      });
+      .catch(() => { if (!cancelled) setGuardados([]); })
+      .finally(() => { if (!cancelled) setGuardadosLoading(false); });
     return () => { cancelled = true; };
-  }, [user?.id]);
+  }, [user?.id, isOwner]);
 
   // Recarga guardados cuando el usuario navega a esa tab
   useEffect(() => {
-    if (armarioTab !== 'guardados' || !user?.id) return;
+    if (armarioTab !== 'guardados' || !user?.id || !isOwner) return;
     setGuardadosLoading(true);
     guardadoService.obtenerMisGuardados()
       .then(data => setGuardados(Array.isArray(data) ? data : []))
       .catch(() => setGuardados([]))
       .finally(() => setGuardadosLoading(false));
-  }, [armarioTab, user?.id]);
+  }, [armarioTab, user?.id, isOwner]);
 
   useEffect(() => {
     if (statusMessage.text) {
@@ -116,9 +156,9 @@ const Profile = () => {
     }
   }, [statusMessage]);
 
-  // Carga pruebas de try-on cuando el usuario navega a esa tab
+  // Carga pruebas de try-on — solo para el dueño
   useEffect(() => {
-    if (armarioTab !== 'pruebas' || !user?.id) return;
+    if (armarioTab !== 'pruebas' || !user?.id || !isOwner) return;
     let cancelled = false;
     setTryonLoading(true);
     tryonService.obtenerMisPruebas()
@@ -126,32 +166,27 @@ const Profile = () => {
         if (cancelled) return;
         setPruebas(Array.isArray(data) ? data : []);
       })
-      .catch(() => {
-        if (!cancelled) setPruebas([]);
-      })
-      .finally(() => {
-        if (!cancelled) setTryonLoading(false);
-      });
+      .catch(() => { if (!cancelled) setPruebas([]); })
+      .finally(() => { if (!cancelled) setTryonLoading(false); });
     return () => { cancelled = true; };
-  }, [armarioTab, user?.id]);
+  }, [armarioTab, user?.id, isOwner]);
 
-  // Función para eliminar prueba desde el modal
   const eliminarPrueba = async (id) => {
-    if (!confirm('¿Eliminar esta prueba virtual?')) return
+    if (!confirm('¿Eliminar esta prueba virtual?')) return;
     try {
-      await tryonService.eliminar(id)
-      setPruebas(prev => prev.filter(p => p.id !== id))
-      setPruebaSeleccionada(null)
+      await tryonService.eliminar(id);
+      setPruebas(prev => prev.filter(p => p.id !== id));
+      setPruebaSeleccionada(null);
     } catch {
-      alert('Error al eliminar la prueba')
+      alert('Error al eliminar la prueba');
     }
-  }
-  const [searchParams] = useSearchParams()
+  };
 
+  const [searchParams] = useSearchParams();
   useEffect(() => {
-    const tab = searchParams.get('tab')
-    if (tab) setArmarioTab(tab)
-  }, [searchParams])
+    const tab = searchParams.get('tab');
+    if (tab) setArmarioTab(tab);
+  }, [searchParams]);
 
   const handleDesguardar = async (prendaId) => {
     try {
@@ -244,10 +279,31 @@ const Profile = () => {
     return matchesSearch && matchesCategory && matchesColor;
   });
 
+  // Si es visitante y no se encontró el perfil, mostrar mensaje amigable
+  if (!user && userId) return (
+    <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-gray-500">
+      <p className="text-lg font-semibold">No se encontró este perfil.</p>
+      <button onClick={() => navigate("/")} className="px-5 py-2 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors">Volver al inicio</button>
+    </div>
+  );
+
   if (!user) return null;
 
   const nombreUsuario = user.nombre || '';
   const apellidoUsuario = user.apellido || '';
+
+  // ✅ Tabs que ve el visitante (no tiene acceso a guardados ni pruebas privadas)
+  const tabsDisponibles = isOwner
+    ? [
+        { id: 'armario',   label: 'Mi Armario Virtual' },
+        { id: 'outfits',   label: 'Outfits Guardados' },
+        { id: 'guardados', label: 'Mis Guardados' },
+        { id: 'pruebas',   label: 'Módulo Try-On' },
+      ]
+    : [
+        { id: 'armario', label: 'Armario' },
+        { id: 'outfits', label: 'Outfits' },
+      ];
 
   return (
     <div className="h-screen bg-slate-50 text-gray-900 flex justify-center w-full relative selection:bg-rosado/30 overflow-y-scroll scrollbar-thin scrollbar-thumb-morado/20 scrollbar-track-transparent hover:scrollbar-thumb-morado/40 transition-colors">
@@ -273,17 +329,26 @@ const Profile = () => {
             backgroundSize: 'cover'
           }}
         >
-          <button 
-            onClick={handleLogout}
-            className="absolute top-4 right-4 z-30 px-4 py-2.5 text-xs font-bold text-white bg-black/20 hover:bg-black/40 backdrop-blur-md rounded-xl transition-all flex items-center gap-2"
-          >
-            <LogOut className="w-4 h-4" /> Cerrar sesión
-          </button>
+          {/* ✅ Botón cerrar sesión — solo para el dueño */}
+          {isOwner && (
+            <button 
+              onClick={handleLogout}
+              className="absolute top-4 right-4 z-30 px-4 py-2.5 text-xs font-bold text-white bg-black/20 hover:bg-black/40 backdrop-blur-md rounded-xl transition-all flex items-center gap-2"
+            >
+              <LogOut className="w-4 h-4" /> Cerrar sesión
+            </button>
+          )}
 
-          <input type="file" ref={fileInputRef} onChange={(e) => handleUploadMedia(e, 'avatar')} accept="image/*" className="hidden" />
-          <input type="file" ref={backgroundInputRef} onChange={(e) => handleUploadMedia(e, 'fondo')} accept="image/*" className="hidden" />
+          {/* Inputs de archivo — solo el dueño los usa */}
+          {isOwner && (
+            <>
+              <input type="file" ref={fileInputRef} onChange={(e) => handleUploadMedia(e, 'avatar')} accept="image/*" className="hidden" />
+              <input type="file" ref={backgroundInputRef} onChange={(e) => handleUploadMedia(e, 'fondo')} accept="image/*" className="hidden" />
+            </>
+          )}
 
-          {isEditing && (
+          {/* ✅ Overlay editar portada — solo para el dueño en modo edición */}
+          {isOwner && isEditing && (
             <div 
               onClick={(e) => { e.stopPropagation(); backgroundInputRef.current.click(); }}
               className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-2 cursor-pointer z-10 text-white"
@@ -302,7 +367,8 @@ const Profile = () => {
         {/* INFORMACIÓN DEL USUARIO */}
         <div className="px-8 pb-6 flex flex-col items-center md:items-start gap-4 border-b border-gray-100 relative bg-white">
           
-          {!isEditing && (
+          {/* ✅ Botón editar — solo para el dueño */}
+          {isOwner && !isEditing && (
             <button 
               onClick={() => setIsEditing(true)}
               title="Editar Información de Perfil"
@@ -326,7 +392,8 @@ const Profile = () => {
                     <User className="w-14 h-14 text-gray-300" />
                   </div>
                 )}
-                {isEditing && (
+                {/* ✅ Overlay cambiar avatar — solo para el dueño en modo edición */}
+                {isOwner && isEditing && (
                   <div 
                     onClick={() => fileInputRef.current.click()}
                     className="absolute inset-0 bg-black/50 backdrop-blur-[1px] opacity-0 group-hover/avatar:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-1 text-white cursor-pointer"
@@ -339,7 +406,8 @@ const Profile = () => {
             </div>
 
             <div className="w-full space-y-4 text-center md:text-left">
-              {isEditing ? (
+              {/* ✅ Formulario de edición — solo para el dueño */}
+              {isOwner && isEditing ? (
                 <form onSubmit={handleSubmit} className="space-y-3 max-w-xl mx-auto md:mx-0">
                   <div className="grid grid-cols-2 gap-3">
                     <input type="text" name="nombre" placeholder="Nombre" value={formData.nombre || ''} onChange={handleChange} required className="w-full px-3 py-2 border border-gray-200 rounded-xl text-base focus:outline-none focus:border-morado transition-colors bg-slate-50" />
@@ -364,12 +432,15 @@ const Profile = () => {
                 <>
                   <div>
                     <h2 className="text-4xl font-black text-gray-900 tracking-tight">{nombreUsuario} {apellidoUsuario}</h2>
-                    <p className="text-sm font-semibold text-gray-400 flex items-center justify-center md:justify-start gap-1.5 mt-1">
-                      <Mail className="w-4 h-4 text-gray-300" /> {user.email}
-                    </p>
+                    {/* ✅ Email solo visible para el dueño */}
+                    {isOwner && (
+                      <p className="text-sm font-semibold text-gray-400 flex items-center justify-center md:justify-start gap-1.5 mt-1">
+                        <Mail className="w-4 h-4 text-gray-300" /> {user.email}
+                      </p>
+                    )}
                   </div>
                   <p className="text-base text-gray-600 max-w-2xl font-medium leading-relaxed bg-slate-50/60 p-4 rounded-2xl border border-gray-100 mx-auto md:mx-0 text-left">
-                    {user.bio || '💡 Configurando combinaciones perfectas desde tu armario.'}
+                    {user.bio || '💡 Configurando combinaciones perfectas desde su armario.'}
                   </p>
                   <div className="flex flex-wrap justify-center md:justify-start gap-2.5 pt-1 text-xs font-semibold text-gray-500">
                     <span className="flex items-center gap-1 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
@@ -390,12 +461,7 @@ const Profile = () => {
 
         {/* PESTAÑAS */}
         <div className="flex justify-center px-8 border-b border-gray-100 bg-white w-full">
-          {[
-            { id: 'armario',   label: 'Mi Armario Virtual' },
-            { id: 'outfits',   label: 'Outfits Guardados' },
-            { id: 'guardados', label: 'Mis Guardados' },
-            { id: 'pruebas',   label: 'Módulo Try-On' },
-          ].map((tab) => (
+          {tabsDisponibles.map((tab) => (
             <button
               key={tab.id}
               onClick={() => setArmarioTab(tab.id)}
@@ -467,12 +533,15 @@ const Profile = () => {
 
               <div className="flex justify-between items-center mb-6 max-w-5xl mx-auto">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">Prendas ({prendasFiltradas.length})</h3>
-                <button
-                  onClick={() => navigate('/añadir-prenda')}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-gray-950 text-white px-4 py-2 text-sm font-bold hover:bg-gray-800 transition-colors shadow-sm"
-                >
-                  <Plus className="w-4 h-4" /> Nueva Prenda
-                </button>
+                {/* ✅ Botón "Nueva Prenda" — solo para el dueño */}
+                {isOwner && (
+                  <button
+                    onClick={() => navigate('/añadir-prenda')}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-gray-950 text-white px-4 py-2 text-sm font-bold hover:bg-gray-800 transition-colors shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" /> Nueva Prenda
+                  </button>
+                )}
               </div>
 
               {wardrobeLoading ? (
@@ -518,12 +587,15 @@ const Profile = () => {
           {armarioTab === 'outfits' && (
             <div className="max-w-5xl mx-auto pb-8">
               <div className="flex justify-end mb-6">
-                <button
-                  onClick={() => navigate('/calendario')}
-                  className="inline-flex items-center gap-1.5 rounded-xl bg-gray-950 text-white px-4 py-2 text-sm font-bold hover:bg-gray-800 transition-colors shadow-sm"
-                >
-                  <Plus className="w-4 h-4" /> Diseñar Outfit
-                </button>
+                {/* ✅ Botón "Diseñar Outfit" — solo para el dueño */}
+                {isOwner && (
+                  <button
+                    onClick={() => navigate('/calendario')}
+                    className="inline-flex items-center gap-1.5 rounded-xl bg-gray-950 text-white px-4 py-2 text-sm font-bold hover:bg-gray-800 transition-colors shadow-sm"
+                  >
+                    <Plus className="w-4 h-4" /> Diseñar Outfit
+                  </button>
+                )}
               </div>
               {outfits.length === 0 ? (
                 <div className="bg-white border border-dashed border-gray-200 rounded-2xl py-12 text-center text-gray-400 text-sm shadow-sm max-w-md mx-auto">
@@ -554,8 +626,8 @@ const Profile = () => {
             </div>
           )}
 
-          {/* TAB: GUARDADOS */}
-          {armarioTab === 'guardados' && (
+          {/* TAB: GUARDADOS — solo para el dueño */}
+          {armarioTab === 'guardados' && isOwner && (
             <div className="max-w-5xl mx-auto pb-8">
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
@@ -572,7 +644,7 @@ const Profile = () => {
                 <div className="bg-white border border-dashed border-gray-200 rounded-2xl py-12 px-4 text-center shadow-sm max-w-md mx-auto">
                   <Search className="w-8 h-8 text-gray-200 mx-auto mb-2" />
                   <p className="text-gray-400 text-sm font-medium">Aún no has guardado ninguna prenda.</p>
-                  <p className="text-gray-300 text-xs mt-1">Explora el feed y guarda las que te inspiren 💜</p>
+                  <p className="text-gray-300 text-xs mt-1">Explora el feed y guarda las que te inspiren </p>
                 </div>
               ) : (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-w-5xl mx-auto pb-8">
@@ -597,7 +669,6 @@ const Profile = () => {
                           )}
                         </div>
                       </button>
-                      {/* Botón quitar de guardados — aparece en hover */}
                       <button
                         onClick={() => handleDesguardar(p.id)}
                         title="Quitar de guardados"
@@ -612,11 +683,9 @@ const Profile = () => {
             </div>
           )}
 
-          {/* TAB: TRY-ON */}
-          {armarioTab === 'pruebas' && (
+          {/* TAB: TRY-ON — solo para el dueño */}
+          {armarioTab === 'pruebas' && isOwner && (
             <div className="max-w-5xl mx-auto pb-8">
-
-              {/* Header con botón */}
               <div className="flex justify-between items-center mb-6">
                 <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
                   Pruebas virtuales ({pruebas.length})
@@ -645,7 +714,7 @@ const Profile = () => {
                   {pruebas.map((prueba) => (
                     <button
                       key={prueba.id}
-                      onClick={() => setPruebaSeleccionada(prueba)}  // abre modal
+                      onClick={() => setPruebaSeleccionada(prueba)}
                       className="group bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-morado/40 transition-all hover:shadow-md text-left shadow-sm"
                     >
                       <div className="aspect-[2/3] bg-gray-50 flex items-center justify-center overflow-hidden">
@@ -685,7 +754,6 @@ const Profile = () => {
                   onClick={(e) => e.target === e.currentTarget && setPruebaSeleccionada(null)}
                 >
                   <div className="bg-white rounded-3xl overflow-hidden max-w-lg w-full shadow-2xl">
-                    {/* Header modal */}
                     <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
                       <div>
                         <p className="font-bold text-gray-900">Prueba virtual</p>
@@ -696,7 +764,6 @@ const Profile = () => {
                         </p>
                       </div>
                       <div className="flex items-center gap-2">
-                        {/* Botón eliminar */}
                         <button
                           onClick={() => eliminarPrueba(pruebaSeleccionada.id)}
                           className="w-8 h-8 rounded-full bg-red-50 flex items-center justify-center hover:bg-red-100 transition-colors"
@@ -704,7 +771,6 @@ const Profile = () => {
                         >
                           <Trash2 className="w-4 h-4 text-red-400" />
                         </button>
-                        {/* Botón cerrar */}
                         <button
                           onClick={() => setPruebaSeleccionada(null)}
                           className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center hover:bg-gray-200 transition-colors"
@@ -713,8 +779,6 @@ const Profile = () => {
                         </button>
                       </div>
                     </div>
-
-                    {/* Imagen resultado */}
                     <div className="bg-gray-50 flex items-center justify-center p-4">
                       <img
                         src={pruebaSeleccionada.imagen_url}
@@ -722,8 +786,6 @@ const Profile = () => {
                         className="max-h-[60vh] object-contain rounded-2xl"
                       />
                     </div>
-
-                    {/* Info prenda */}
                     {pruebaSeleccionada.configuracion_prendas && (
                       <div className="px-6 py-4 border-t border-gray-50">
                         <p className="text-xs text-gray-400 uppercase tracking-widest font-bold mb-1">
