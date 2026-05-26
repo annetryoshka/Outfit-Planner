@@ -10,6 +10,7 @@ import asistenteService from '../services/asistenteService'
 import climaService from '../services/climaService'
 import prendaService from '../services/prendaService'
 import ReactMarkdown from 'react-markdown';
+import guardadoService from '../services/guardadoService'
 
 // ── Una sola constante para alinear navbar y header del chat ──
 const NAVBAR_HEIGHT = '72px'
