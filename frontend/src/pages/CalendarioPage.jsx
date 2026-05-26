@@ -15,6 +15,8 @@ export default function CalendarioPage() {
   const [modalAbierto, setModalAbierto] = useState(false)
   const [outfitEditando, setOutfitEditando] = useState(null)
   const [form, setForm] = useState({ nombre: '', ocasion: '', es_publico: false })
+  const [hoveredDia, setHoveredDia] = useState(null)
+  const [dragOverDia, setDragOverDia] = useState(null)
 
   // Cargar todos los outfits al montar
   useEffect(() => {
@@ -85,43 +87,226 @@ export default function CalendarioPage() {
     }
   }
 
+  const outfitsSinFecha = outfits.filter(o => !o.fecha_calendario)
+
+  const generarDiasMes = () => {
+    const inicio = dayjs(fecha).startOf('month')
+    const fin = dayjs(fecha).endOf('month')
+    const primerDiaSemana = inicio.day() === 0 ? 6 : inicio.day() - 1
+    const diasMes = fin.date()
+    
+    const dias = []
+    
+    // Añadir días vacíos del mes anterior
+    for (let i = 0; i < primerDiaSemana; i++) {
+      dias.push(null)
+    }
+    
+    // Añadir días del mes actual
+    for (let dia = 1; dia <= diasMes; dia++) {
+      dias.push(dia)
+    }
+    
+    return dias
+  }
+
+  const diasCalendario = generarDiasMes()
+
+  const outfitsDelDia = (dia) => {
+    if (!dia) return []
+    const fechaStr = dayjs(fecha).date(dia).format('YYYY-MM-DD')
+    return outfits.filter(o =>
+      o.fecha_calendario && dayjs(o.fecha_calendario).format('YYYY-MM-DD') === fechaStr
+    )
+  }
+
+  const esHoy = (dia) => {
+    if (!dia) return false
+    return dayjs().isSame(dayjs(fecha).date(dia), 'day')
+  }
+
+  const esSeleccionado = (dia) => {
+    if (!dia) return false
+    return dayjs(fecha).date(dia).isSame(fecha, 'day')
+  }
+
+  const handleCeldaClick = (dia) => {
+    if (!dia) return
+    const nuevaFecha = new Date(fecha.getFullYear(), fecha.getMonth(), dia)
+    setFecha(nuevaFecha)
+  }
+
+  // Función para clonar al soltar
+  const handleDrop = async (e, dia) => {
+    e.preventDefault()
+    console.log('🔴 DROP EJECUTADO, dia:', dia)
+    const outfitId = e.dataTransfer.getData('outfitId')
+    console.log('🔴 outfitId:', outfitId)
+    if (!outfitId || !dia) return
+
+    const nuevaFecha = dayjs(fecha).date(dia).format('YYYY-MM-DD')
+    const original = outfits.find(o => String(o.id) === String(outfitId))
+    if (!original) return
+
+    try {
+      const clon = await outfitService.crear({
+        nombre: original.nombre,
+        ocasion: original.ocasion,
+        es_publico: original.es_publico,
+        imagen_url: original.imagen_url,       // ✅ ya estaba
+        canvas_data: original.canvas_data,     // ← agregar esto
+        fecha_calendario: nuevaFecha,
+        es_clon: true,
+      })
+      setOutfits(prev => [...prev, clon])
+    } catch (err) {
+      console.error('Drop error:', err)
+      alert('No se pudo asignar el outfit a ese día')
+    }
+  }
+
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#fafbad]/40 to-white p-8">
-      <h1 className="text-2xl font-bold text-[#9f8aef] mb-6">📅 Mi Calendario de Outfits</h1>
-
-      <div className="flex gap-8 flex-wrap">
-
-        {/* Calendario */}
-        <div className="bg-white rounded-3xl shadow-md p-6 flex-shrink-0">
-          <style>{`
-            .react-calendar { border: none; font-family: inherit; }
-            .react-calendar__tile--active { background: #9f8aef !important; border-radius: 12px; }
-            .react-calendar__tile:hover { background: #f6ccfa; border-radius: 12px; }
-            .react-calendar__navigation button:hover { background: #f6ccfa; border-radius: 12px; }
-          `}</style>
-          <Calendar
-            onChange={setFecha}
-            value={fecha}
-            tileContent={tileContent}
-            locale="es-ES"
-          />
-        </div>
-
-        {/* Panel del día */}
-        <div className="flex-1 min-w-64">
-          <div className="flex items-center justify-between mb-4">
-            <h2 className="text-lg font-semibold text-gray-800">
-              {dayjs(fecha).format('dddd, D [de] MMMM')}
-            </h2>
+    <div className="flex flex-row h-screen overflow-hidden">
+      {/* Hijo izquierdo — Calendario grande (70%) */}
+      <div className="w-[70%] flex flex-col h-full p-6 overflow-hidden">
+        <h1 className="text-2xl font-bold text-[#9f8aef] mb-6"> Mi Calendario </h1>
+        
+        {/* Grilla de calendario personalizado */}
+        <div className="flex-1 bg-white rounded-2xl shadow-sm p-4 overflow-auto">
+          {/* Navegación de mes */}
+          <div className="flex items-center justify-between mb-4 px-1">
             <button
-              type="button"
-              onClick={abrirCrear}
-              className="flex items-center gap-2 bg-[#9f8aef] text-white px-4 py-2 rounded-full text-sm hover:bg-[#9f8aef]/80 transition-colors"
+              onClick={() => setFecha(prev => new Date(prev.getFullYear(), prev.getMonth() - 1, 1))}
+              className="w-8 h-8 rounded-full hover:bg-[#f6ccfa] flex items-center justify-center transition-colors text-gray-600 font-bold"
             >
-              <Plus size={16} /> Añadir outfit
+              ‹
+            </button>
+            <span className="text-base font-semibold text-gray-800 capitalize">
+              {dayjs(fecha).format('MMMM YYYY')}
+            </span>
+            <button
+              onClick={() => setFecha(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
+              className="w-8 h-8 rounded-full hover:bg-[#f6ccfa] flex items-center justify-center transition-colors text-gray-600 font-bold"
+            >
+              ›
             </button>
           </div>
+          
+          {/* Días de la semana */}
+          <div className="grid grid-cols-7 gap-px bg-gray-100 mb-px">
+            {['L', 'M', 'M', 'J', 'V', 'S', 'D'].map(dia => (
+              <div key={dia} className="bg-gray-50 p-2 text-center text-xs font-medium text-gray-600">
+                {dia}
+              </div>
+            ))}
+          </div>
+          
+          {/* Celdas del mes */}
+          <div className="grid grid-cols-7 gap-px bg-gray-100">
+            {diasCalendario.map((dia, index) => {
+              const outfitsDia = outfitsDelDia(dia)
+              const hoy = esHoy(dia)
+              const seleccionado = esSeleccionado(dia)
+              
+              return (
+                <div key={index} className="relative" onDragOver={(e) => { e.preventDefault(); setDragOverDia(dia) }} onDragLeave={() => setDragOverDia(null)} onDrop={(e) => { setDragOverDia(null); handleDrop(e, dia) }}>
+                  <div
+                    onClick={() => handleCeldaClick(dia)}
+                    onMouseEnter={() => outfitsDia.length > 0 && setHoveredDia(dia)}
+                    onMouseLeave={() => setHoveredDia(null)}
+                    className={`bg-white min-h-[100px] p-2 relative cursor-pointer transition-colors
+                      ${dia ? '' : 'opacity-30'}
+                      ${seleccionado ? 'border-2 border-[#9f8aef] bg-[#f6ccfa]/30' : ''}
+                      ${dragOverDia === dia && dia ? 'bg-[#9f8aef]/20 ring-2 ring-[#9f8aef] ring-inset' : 'hover:bg-[#f6ccfa]/20'}
+                    `}
+                  >
+                    {dia && (
+                      <>
+                        {/* Badge +N si hay múltiples outfits */}
+                        {outfitsDia.length > 1 && (
+                          <div className="absolute top-1 left-1 w-5 h-5 bg-[#9f8aef] text-white text-xs rounded-full flex items-center justify-center">
+                            +{outfitsDia.length - 1}
+                          </div>
+                        )}
+                        
+                        {/* Número del día */}
+                        <div className={`absolute top-1 right-1 text-sm ${
+                          hoy ? 'text-[#9f8aef] font-bold' : 'text-gray-600'
+                        }`}>
+                          {dia}
+                        </div>
+                        
+                        {/* Outfit del día */}
+                        {outfitsDia.length > 0 && (
+                          <div className="mt-4 flex flex-col items-center">
+                            {outfitsDia[0].imagen_url ? (
+                              <img
+                                src={outfitsDia[0].imagen_url}
+                                alt={outfitsDia[0].nombre}
+                                className="w-8 h-8 object-cover rounded"
+                              />
+                            ) : (
+                              <span className="text-lg">👗</span>
+                            )}
+                            <p className="text-xs text-gray-600 mt-1 truncate w-full text-center">
+                              {outfitsDia[0].nombre}
+                            </p>
+                          </div>
+                        )}
+                      </>
+                    )}
+                  </div>
+                  
+                  {/* Tooltip DENTRO del wrapper */}
+                  {hoveredDia === dia && dia && outfitsDelDia(dia).length > 0 && (
+                    <div className="absolute bottom-full left-0 z-50 bg-white rounded-xl shadow-xl p-3 border border-gray-200 min-w-[180px] pointer-events-none mb-1">
+                      <div className="text-xs font-medium text-gray-600 mb-2">
+                        {dayjs(fecha).date(dia).format('D [de] MMMM')}
+                      </div>
+                      <div className="space-y-2">
+                        {outfitsDelDia(dia).map(outfit => (
+                          <div key={outfit.id} className="flex items-center gap-2">
+                            <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-[#f6ccfa] to-[#c2e1f9] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                              {outfit.imagen_url ? (
+                                <img src={outfit.imagen_url} alt={outfit.nombre} className="w-full h-full object-cover" />
+                              ) : (
+                                <span className="text-xs">👗</span>
+                              )}
+                            </div>
+                            <div className="flex-1">
+                              <p className="text-xs font-medium text-gray-800 truncate">{outfit.nombre}</p>
+                              {outfit.ocasion && <p className="text-xs text-gray-400">{outfit.ocasion}</p>}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      </div>
 
+      {/* Hijo derecho — Panel lateral (30%) */}
+      <div className="w-[30%] flex flex-col h-full p-6 border-l border-gray-100 overflow-y-auto bg-white">
+        {/* Encabezado */}
+        <div className="flex items-center justify-between mb-6">
+          <h2 className="text-lg font-semibold text-gray-800">
+            {dayjs(fecha).format('dddd, D [de] MMMM')}
+          </h2>
+          <button
+            type="button"
+            onClick={abrirCrear}
+            className="flex items-center gap-2 bg-[#9f8aef] text-white px-4 py-2 rounded-full text-sm hover:bg-[#9f8aef]/80 transition-colors"
+          >
+            <Plus size={16} /> Añadir outfit
+          </button>
+        </div>
+
+        {/* Outfits del día */}
+        <div className="mb-6">
           {outfitsDia.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 text-center text-gray-400 shadow-sm">
               <p className="text-3xl mb-2">👗</p>
@@ -176,6 +361,35 @@ export default function CalendarioPage() {
               ))}
             </div>
           )}
+        </div>
+
+        {/* Todos mis outfits */}
+        <div className="border-t border-gray-100 pt-6">
+          <h3 className="text-sm font-medium text-gray-600 mb-3">Todos mis outfits</h3>
+          <div className="space-y-2">
+            {outfits.filter(o => !o.es_clon).map(o => (
+              <div
+                key={o.id}
+                draggable
+                onDragStart={(e) => {
+                  console.log('🟢 DRAG START, id:', o.id)
+                  e.dataTransfer.setData('outfitId', o.id)
+                }}
+                className="bg-white rounded-xl p-3 shadow-sm flex items-center gap-3 cursor-move hover:shadow-md transition-shadow"
+              >
+                <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#f6ccfa] to-[#c2e1f9] flex items-center justify-center flex-shrink-0 overflow-hidden">
+                  {o.imagen_url
+                    ? <img src={o.imagen_url} alt={o.nombre} className="w-full h-full object-cover" />
+                    : <span className="text-sm">👗</span>
+                  }
+                </div>
+                <div className="flex-1">
+                  <p className="text-sm font-medium text-gray-800 truncate">{o.nombre}</p>
+                  {o.ocasion && <p className="text-xs text-gray-400 capitalize">{o.ocasion}</p>}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
       </div>
 

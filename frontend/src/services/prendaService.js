@@ -1,23 +1,35 @@
 import api from './api'
 
 const prendaService = {
+  // Feed global tipo Pinterest: prendas públicas de TODOS los usuarios
+  // Usa endpoint sin auth — no requiere token
+  async obtenerPublicas() {
+    const res = await api.get('/prendas/publicas')
+    return res.data
+  },
+
+  // Prendas del usuario logueado (públicas + privadas)
   async obtenerTodas() {
     const res = await api.get('/prendas')
     return res.data
   },
+
   async obtenerPorId(id) {
     const res = await api.get(`/prendas/${id}`)
     return res.data
   },
+
   /** @param {FormData} formData — campo archivo: `imagen`, resto como en POST /api/prendas */
   async crear(formData) {
     const res = await api.post('/prendas', formData)
     return res.data
   },
+
   async actualizar(id, formData) {
     const res = await api.put(`/prendas/${id}`, formData)
     return res.data
   },
+
   /** @param {FormData} formData — solo campo `imagen`. Devuelve Blob PNG. */
   async quitarFondoPreview(formData) {
     const res = await api.post('/prendas/quitar-fondo-preview', formData, {

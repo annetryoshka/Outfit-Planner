@@ -1,12 +1,12 @@
 const pool = require('../config/database')
 
 const Outfit = {
-  async create({ user_id, nombre, ocasion, es_publico, imagen_url, fecha_calendario, canvas_data }) {
+  async create({ user_id, nombre, ocasion, es_publico, imagen_url, fecha_calendario, canvas_data, es_clon }) {
     const result = await pool.query(
-      `INSERT INTO outfits (user_id, nombre, ocasion, es_publico, imagen_url, fecha_calendario, canvas_data)
-       VALUES ($1, $2, $3, $4, $5, $6, $7)
+      `INSERT INTO outfits (user_id, nombre, ocasion, es_publico, imagen_url, fecha_calendario, canvas_data, es_clon)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
        RETURNING *`,
-      [user_id, nombre, ocasion, es_publico, imagen_url, fecha_calendario, canvas_data ? JSON.stringify(canvas_data) : null]
+      [user_id, nombre, ocasion, es_publico, imagen_url, fecha_calendario, canvas_data ? JSON.stringify(canvas_data) : null, es_clon ?? false]
     )
     return result.rows[0]
   },
