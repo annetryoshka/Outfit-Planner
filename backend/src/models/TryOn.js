@@ -1,5 +1,4 @@
 const pool = require('../config/database')
-const { create } = require('./Prenda')
 
 const TryOn = {
     async create({ user_id, outfit_id = null, imagen_url, configuracion_prendas = null }) {
@@ -16,7 +15,7 @@ const TryOn = {
         const result = await pool.query(
             `SELECT t.*, o.nombre as outfit_nombre
              FROM tryon_history t
-             LEFT JOIN outfit o ON t.outfit_id = o.id
+             LEFT JOIN outfits o ON t.outfit_id = o.id
              WHERE t.user_id = $1 ORDER BY t.created_at DESC`,
             [user_id]
         )
