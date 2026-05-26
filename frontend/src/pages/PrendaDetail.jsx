@@ -6,6 +6,7 @@ import logo6 from '../assets/logo6.png'
 import prendaService from '../services/prendaService'
 import authService from '../services/authService'
 import guardadoService from '../services/guardadoService'
+import likeService from '../services/likeService'
 
 const fmt = (s) => {
   if (s == null || s === '') return ''
@@ -28,6 +29,11 @@ const PrendaDetail = () => {
   const [guardado, setGuardado] = useState(false)
   const [guardando, setGuardando] = useState(false)
 
+  // Estado del botón Like
+  const [liked, setLiked] = useState(false)
+  const [likesCount, setLikesCount] = useState(0)
+  const [likeLoading, setLikeLoading] = useState(false)
+
   // IDs guardados para las miniaturas relacionadas
   const [guardadosIds, setGuardadosIds] = useState(new Set())
   const [guardandoMiniId, setGuardandoMiniId] = useState(null)
@@ -44,6 +50,7 @@ const PrendaDetail = () => {
         ])
         if (cancelled) return
         setPrenda(p)
+        setLikesCount(p.likes_count || 0)
         const lista = Array.isArray(todas) ? todas : []
         setPrendasRelacionadas(lista.filter(x => String(x.id) !== String(id)).slice(0, 12))
       } catch (e) {
@@ -59,17 +66,23 @@ const PrendaDetail = () => {
     return () => { cancelled = true }
   }, [id])
 
-  // Carga estado de guardado al montar
+  // Carga estado de guardado y like al montar
   useEffect(() => {
     const token = localStorage.getItem('token')
     if (!token || !id) return
-    // Carga todos los guardados para inicializar el Set de miniaturas también
+    
+    // Guardados
     guardadoService.obtenerMisGuardados()
       .then(data => {
         const ids = new Set((Array.isArray(data) ? data : []).map(p => String(p.id)))
         setGuardadosIds(ids)
         setGuardado(ids.has(String(id)))
       })
+      .catch(() => {})
+    
+    // Like
+    likeService.verificarLike(id)
+      .then(data => setLiked(data.tienelike))
       .catch(() => {})
   }, [id])
 
@@ -91,6 +104,33 @@ const PrendaDetail = () => {
       URL.revokeObjectURL(url)
     } catch {
       window.open(prenda.imagen_url, '_blank')
+    }
+  }
+
+  // Toggle like
+  const toggleLike = async () => {
+    if (likeLoading) return
+    const token = localStorage.getItem('token')
+    if (!token) {
+      navigate('/login')
+      return
+    }
+    
+    setLikeLoading(true)
+    try {
+      if (liked) {
+        await likeService.quitarLike(prenda.id)
+        setLiked(false)
+        setLikesCount(prev => Math.max(0, prev - 1))
+      } else {
+        await likeService.darLike(prenda.id)
+        setLiked(true)
+        setLikesCount(prev => prev + 1)
+      }
+    } catch (error) {
+      console.error('Error al dar/quitar like:', error)
+    } finally {
+      setLikeLoading(false)
     }
   }
 
@@ -173,10 +213,15 @@ const PrendaDetail = () => {
     fmt(prenda.material), prenda.marca ? fmt(prenda.marca) : ''
   ].filter(Boolean)
 
+  // Construir nombre del autor
+  const nombreAutor = prenda.autor_nombre && prenda.autor_apellido
+    ? `${prenda.autor_nombre} ${prenda.autor_apellido}`
+    : prenda.autor_nombre || 'Usuario anónimo'
+
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#fafbad] from-5% via-white via-50% to-[#fafbad] to-95% bg-fixed">
 
-      {/* Navbar — fixed, transparente para dejar ver el fondo */}
+      {/* Navbar */}
       <div className="fixed top-0 left-0 w-full z-50 py-4 bg-white/80 backdrop-blur-sm shadow-sm">
         <div className="max-w-[1400px] mx-auto px-4 flex items-center">
           <button onClick={() => navigate('/')} className="h-10 w-auto cursor-pointer ml-8 mr-6 hover:opacity-90 transition-all">
@@ -196,19 +241,35 @@ const PrendaDetail = () => {
       {/* Contenedor Principal */}
       <div className="max-w-[1260px] mx-auto px-4 pt-24 pb-10 grid grid-cols-4 gap-6">
 
-        {/* Bloque Izquierdo: Panel + Masonry */}
+        {/* Bloque Izquierdo */}
         <div className="col-span-2">
 
-          {/* Panel — blanco, borde sutil */}
+          {/* Panel */}
           <div className="rounded-[32px] shadow-[0_1px_20px_rgba(0,0,0,0.08)] overflow-hidden flex flex-col mb-6 bg-white border border-gray-200">
 
             {/* Header interno */}
             <div className="flex justify-between items-center p-6">
               <div className="flex gap-1">
-                {/* Like — por ahora visual, pendiente de backend */}
-                <button className="p-3 hover:bg-gray-100 rounded-full transition-colors group">
-                  <Heart className="w-6 h-6 text-gray-400 group-hover:text-red-400 transition-colors" />
+                {/* Like funcional */}
+                <button 
+                  onClick={toggleLike}
+                  disabled={likeLoading}
+                  className="p-3 hover:bg-gray-100 rounded-full transition-colors group disabled:opacity-50"
+                >
+                  <Heart 
+                    className={`w-6 h-6 transition-all ${
+                      liked 
+                        ? 'fill-red-500 text-red-500' 
+                        : 'text-gray-400 group-hover:text-red-400'
+                    }`} 
+                  />
                 </button>
+                {/* Contador de likes */}
+                {likesCount > 0 && (
+                  <span className="flex items-center text-sm text-gray-600 font-medium px-2">
+                    {likesCount}
+                  </span>
+                )}
                 {/* Copiar enlace */}
                 <button onClick={handleCopyLink} className="p-3 hover:bg-gray-100 rounded-full transition-colors" title="Copiar enlace">
                   <Link className="w-6 h-6 text-gray-800" />
@@ -253,7 +314,13 @@ const PrendaDetail = () => {
 
             {/* Info */}
             <div className="px-6 pb-8 pt-2">
-              <h1 className="text-3xl font-bold text-gray-900 mb-5">{prenda.nombre}</h1>
+              <h1 className="text-3xl font-bold text-gray-900 mb-2">{prenda.nombre}</h1>
+              
+              {/* Nombre del autor */}
+              <p className="text-sm text-gray-500 mb-4">
+                Subido por <span className="font-semibold text-gray-700">{nombreAutor}</span>
+              </p>
+
               {isFromWishlist && (
                 <div className="mb-4">
                   <a href="#" className="inline-flex items-center gap-2 text-gray-600 hover:text-gray-900 transition-colors text-sm">
@@ -282,7 +349,7 @@ const PrendaDetail = () => {
           </Masonry>
         </div>
 
-        {/* Bloque Derecho: Masonry */}
+        {/* Bloque Derecho */}
         <div className="col-span-2">
           <Masonry breakpointCols={2} className="flex gap-6" columnClassName="flex-1">
             {prendasDerecha.map((item) => (
@@ -296,7 +363,7 @@ const PrendaDetail = () => {
   )
 }
 
-// Componente miniatura reutilizable con botón Guardar/Editar funcional
+// Componente miniatura
 const MiniPin = ({ item, miUserId, guardadosIds, guardandoId, onNavigate, onEdit, onGuardar }) => {
   const esMio = String(item.user_id) === String(miUserId)
   return (
@@ -319,6 +386,8 @@ const MiniPin = ({ item, miUserId, guardadosIds, guardandoId, onNavigate, onEdit
             {guardandoId === item.id ? '...' : guardadosIds.has(String(item.id)) ? 'Guardado ✓' : 'Guardar'}
           </button>
         )}
+
+        
       </div>
       <p className="mt-2 px-1 text-sm font-semibold text-gray-800 truncate">{item.nombre}</p>
     </div>

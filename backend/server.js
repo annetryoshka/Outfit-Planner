@@ -12,6 +12,7 @@ const asistenteRoutes = require('./src/routes/asistente')
 const prendaRoutes = require('./src/routes/prenda')
 const wishlistRoutes = require('./src/routes/wishlist')
 const guardadoRoutes = require('./src/routes/guardado')
+const likeRoutes = require('./src/routes/like')  // ← NUEVA LÍNEA
 const { specs, swaggerUi } = require('./src/config/swagger')
 const passport = require('passport')
 
@@ -32,6 +33,7 @@ app.use('/api/clima', climaRoutes)
 app.use('/api/asistente', asistenteRoutes)
 app.use('/api/wishlist', wishlistRoutes)
 app.use('/api/guardados', guardadoRoutes)
+app.use('/api/likes', likeRoutes)  // ← NUEVA LÍNEA
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs))
 
 // Ruta raíz

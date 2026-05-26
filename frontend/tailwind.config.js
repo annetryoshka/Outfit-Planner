@@ -15,7 +15,8 @@ export default {
         'verde': '#79d063',
       },
       fontFamily: {
-        subtitulo: ['BookmaniaGit', 'serif'],
+        // Tu subtitulo ahora tendrá ese look editorial clásico y sofisticado
+        'subtitulo': ['Times New Roman', 'Times', 'Georgia', 'serif'],
       }
     },
   },

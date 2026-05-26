@@ -5,6 +5,7 @@ import prendaService from '../services/prendaService'
 import authService from '../services/authService'
 import { normalizeForDb, alignValueToOptions } from '../utils/normalizeForDb'
 
+
 const tipos = ['Superior', 'Inferior', 'Calzado', 'Accesorio', 'Otros']
 const categorias = ['Camisa', 'Polera', 'Pantalón', 'Shorts', 'Vestido', 'Abrigo', 'Falda', 'Blusa', 'Jeans', 'Chaquetas',  'Bolso',  'Bufanda',  'Guantes']
 const colores = ['Negro', 'Celeste', 'Amarillo', 'Blanco', 'Gris', 'Azul', 'Rojo', 'Verde', 'Verde Claro', 'Beige', 'Marrón', 'Rosa',  'Morado']
@@ -243,6 +244,24 @@ const AddPrenda = () => {
       setSaving(false)
     }
   }
+  const handleEliminar = async () => {
+  if (!window.confirm('¿Estás seguro de que quieres eliminar esta prenda? Esta acción no se puede deshacer.')) {
+    return
+  }
+  
+  setSaving(true)
+  setSaveError(null)
+  
+  try {
+    await prendaService.eliminar(editarId)
+    navigate('/')
+  } catch (err) {
+    const msg = err.response?.data?.message || err.response?.data?.error || err.message
+    setSaveError(typeof msg === 'string' ? msg : 'No se pudo eliminar la prenda.')
+  } finally {
+    setSaving(false)
+  }
+}
 
   const handleQuitarFondo = async (e) => {
     e.stopPropagation()
@@ -295,16 +314,20 @@ const AddPrenda = () => {
   }
 
   const handleClearImage = (e) => {
-    e.stopPropagation()
-    setBgRemovalLoading(false)
-    if (isEdit && existingImageUrl) {
-      setImagePreview(existingImageUrl)
-      setImageFile(null)
-    } else {
-      setImagePreview(null)
-      setImageFile(null)
-    }
+  e.stopPropagation()
+  setBgRemovalLoading(false)
+  if (imageFile) {
+    // Había una imagen nueva subida — cancelar y volver a la original
+    setImageFile(null)
+    setImagePreview(isEdit && existingImageUrl ? existingImageUrl : null)
+  } else {
+    // Ya estaba viendo la imagen original — limpiar completamente
+    setImagePreview(null)
+    setImageFile(null)
   }
+  // Resetear el input para permitir re-seleccionar el mismo archivo
+  if (fileInputRef.current) fileInputRef.current.value = ''
+}
 
   if (loadingPrenda) {
     return (
@@ -317,20 +340,20 @@ const AddPrenda = () => {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#fafbad] to-[#ffffff] overflow-y-auto p-6 pb-12">
       <div className="flex flex-col gap-2 mb-6 px-8">
-        <div className="flex items-center gap-4">
-          <button
-            type="button"
-            onClick={() => (isEdit ? navigate(`/prenda/${editarId}`) : navigate('/'))}
-            className="w-12 h-12 bg-[#f6ccfa] hover:bg-[#9f8aef] hover:text-[#ffffff] rounded-xl flex items-center justify-center transition-all duration-300 group shadow-sm hover:shadow-md"
-          >
-            <ArrowLeft className="w-6 h-6 text-[#9f8aef] group-hover:text-[#ffffff]" />
-          </button>
-          <h1 className="text-3xl font-subtitulo text-gray-800">
-  Añadir Nueva Prenda
-</h1>
-        </div>
-        <div className="w-full h-px bg-[#f6ccfa]" />
-      </div>
+  <div className="flex items-center gap-4">
+    <button
+      type="button"
+      onClick={() => (isEdit ? navigate(`/prenda/${editarId}`) : navigate('/'))}
+      className="w-12 h-12 bg-[#f6ccfa] hover:bg-[#9f8aef] hover:text-[#ffffff] rounded-xl flex items-center justify-center transition-all duration-300 group shadow-sm hover:shadow-md"
+    >
+      <ArrowLeft className="w-6 h-6 text-[#9f8aef] group-hover:text-[#ffffff]" />
+    </button>
+    <h1 className="text-3xl font-subtitulo text-gray-800">
+      {isEdit ? 'Editar Prenda' : 'Añadir Nueva Prenda'}
+    </h1>
+  </div>
+  <div className="w-full h-px bg-[#f6ccfa]" />
+</div>
 
       <div className="max-w-6xl mx-auto px-12">
         <div className="flex gap-8 flex-col lg:flex-row">
@@ -516,14 +539,31 @@ const AddPrenda = () => {
                 <span className="text-gray-700 font-medium">Hacer pública esta prenda</span>
               </div>
 
-              <button
-                type="submit"
-                disabled={saving}
-                className="w-full py-5 bg-[#79d063] text-[#ffffff] rounded-xl font-semibold text-lg hover:bg-[#79d063]/90 transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-60 disabled:transform-none"
-              >
-                <Save className="w-6 h-6" />
-                {saving ? 'Guardando…' : isEdit ? 'Guardar cambios de la prenda' : 'Guardar Prenda en mi Armario'}
-              </button>
+              {/* Botones de acción - Guardar y Eliminar */}
+<div className={`${isEdit ? 'flex gap-4' : ''}`}>
+  <button
+    type="submit"
+    disabled={saving}
+    className={`py-5 bg-[#79d063] text-[#ffffff] rounded-xl font-semibold text-lg hover:bg-[#79d063]/90 transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-60 disabled:transform-none ${
+      isEdit ? 'flex-1' : 'w-full'
+    }`}
+  >
+    <Save className="w-6 h-6" />
+    {saving ? 'Guardando…' : isEdit ? 'Guardar cambios' : 'Guardar Prenda en mi Armario'}
+  </button>
+
+  {isEdit && (
+    <button
+      type="button"
+      onClick={handleEliminar}
+      disabled={saving}
+      className="flex-1 py-5 bg-red-500 text-[#ffffff] rounded-xl font-semibold text-lg hover:bg-red-600 transition-all duration-300 flex items-center justify-center gap-3 shadow-lg hover:shadow-xl transform hover:scale-[1.02] disabled:opacity-60 disabled:transform-none"
+    >
+      <X className="w-6 h-6" />
+      Eliminar prenda
+    </button>
+  )}
+</div>
             </form>
           </div>
         </div>

@@ -30,6 +30,11 @@ const prendaService = {
     return res.data
   },
 
+  async eliminar(id) {
+    const res = await api.delete(`/prendas/${id}`)
+    return res.data
+  },
+
   /** @param {FormData} formData — solo campo `imagen`. Devuelve Blob PNG. */
   async quitarFondoPreview(formData) {
     const res = await api.post('/prendas/quitar-fondo-preview', formData, {
@@ -50,6 +55,7 @@ const prendaService = {
     }
     throw new Error(msg)
   }
+  
 }
 
 export default prendaService
