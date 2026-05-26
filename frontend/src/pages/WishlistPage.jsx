@@ -22,6 +22,9 @@ const WishlistPage = () => {
   const [exploreCat, setExploreCat] = useState('')
   const [formSubmitting, setFormSubmitting] = useState(false)
 
+  const [statusMessage, setStatusMessage] = useState({ type: '', text: '' })
+  const [confirmAction, setConfirmAction] = useState({ show: false, type: '', id: null, action: null })
+
   const [formData, setFormData] = useState({
     url: '',
     imageFile: null,
@@ -49,6 +52,13 @@ const WishlistPage = () => {
   useEffect(() => {
     loadWishlist()
   }, [loadWishlist])
+
+  useEffect(() => {
+    if (statusMessage.text) {
+      const timer = setTimeout(() => setStatusMessage({ type: '', text: '' }), 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [statusMessage])
 
   useEffect(() => {
     const params = new URLSearchParams(location.search)
@@ -100,30 +110,15 @@ const WishlistPage = () => {
   const handleFormSubmit = async (e) => {
     e.preventDefault()
     if (!localStorage.getItem('token')) {
-      Swal.fire({
-      icon: 'error',
-      title: 'Error',
-      text: 'Inicia sesión para añadir productos a tu wishlist.',
-      confirmButtonColor: '#9f8aef'
-    })
+      setStatusMessage({ type: 'error', text: 'Inicia sesión para añadir productos a tu wishlist.' })
       return
     }
     if (!formData.url?.trim() && !formData.imageFile) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Añade una URL o una imagen del producto.',
-        confirmButtonColor: '#9f8aef'
-      })
+      setStatusMessage({ type: 'error', text: 'Añade una URL o una imagen del producto.' })
       return
     }
     if (!formData.categoria) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Selecciona una categoría.',
-        confirmButtonColor: '#9f8aef'
-      })
+      setStatusMessage({ type: 'error', text: 'Selecciona una categoría.' })
       return
     }
 
@@ -151,14 +146,10 @@ const WishlistPage = () => {
         categoria: ''
       })
       await loadWishlist()
+      setStatusMessage({ type: 'success', text: 'Producto añadido correctamente.' })
       navigate('/wishlist?tab=seleccion')
     } catch (err) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: err.response?.data?.message || 'No se pudo guardar el producto.',
-        confirmButtonColor: '#9f8aef'
-      })
+      setStatusMessage({ type: 'error', text: err.response?.data?.message || 'No se pudo guardar el producto.' })
     } finally {
       setFormSubmitting(false)
     }
@@ -166,45 +157,46 @@ const WishlistPage = () => {
 
   const eliminarItem = async (e, id) => {
     e.stopPropagation()
-    if (!window.confirm('¿Quitar este producto de tu selección?')) return
-    try {
-      await wishlistService.eliminar(id)
-      await loadWishlist()
-    } catch {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'No se pudo eliminar el producto.',
-        confirmButtonColor: '#9f8aef'
-      })
-    }
+    setConfirmAction({
+      show: true,
+      type: 'eliminar',
+      id,
+      action: async () => {
+        try {
+          await wishlistService.eliminar(id)
+          await loadWishlist()
+          setStatusMessage({ type: 'success', text: 'Producto eliminado.' })
+        } catch {
+          setStatusMessage({ type: 'error', text: 'No se pudo eliminar el producto.' })
+        }
+        setConfirmAction({ show: false, type: '', id: null, action: null })
+      }
+    })
   }
 
   const marcarAdquirido = async (e, id) => {
     e.stopPropagation()
-    if (!window.confirm('¿Marcar como adquirido? Se quitará de la wishlist (simulación de paso al armario).')) return
-    try {
-      await wishlistService.moverAlArmario(id)
-      await loadWishlist()
-    } catch {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'No se pudo actualizar.',
-        confirmButtonColor: '#9f8aef'
-      })
-    }
+    setConfirmAction({
+      show: true,
+      type: 'adquirido',
+      id,
+      action: async () => {
+        try {
+          await wishlistService.moverAlArmario(id)
+          await loadWishlist()
+          setStatusMessage({ type: 'success', text: 'Producto marcado como adquirido.' })
+        } catch {
+          setStatusMessage({ type: 'error', text: 'No se pudo actualizar.' })
+        }
+        setConfirmAction({ show: false, type: '', id: null, action: null })
+      }
+    })
   }
 
   const guardarProductoExplorar = async (e, p) => {
     e.stopPropagation()
     if (!localStorage.getItem('token')) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: 'Inicia sesión para guardar en tu wishlist.',
-        confirmButtonColor: '#9f8aef'
-      })
+      setStatusMessage({ type: 'error', text: 'Inicia sesión para guardar en tu wishlist.' })
       return
     }
     try {
@@ -215,13 +207,9 @@ const WishlistPage = () => {
         url_tienda: p.url_tienda
       })
       await loadWishlist()
+      setStatusMessage({ type: 'success', text: 'Producto guardado en tu wishlist.' })
     } catch (err) {
-      Swal.fire({
-        icon: 'error',
-        title: 'Error',
-        text: err.response?.data?.message || 'No se pudo guardar.',
-        confirmButtonColor: '#9f8aef'
-      })
+      setStatusMessage({ type: 'error', text: err.response?.data?.message || 'No se pudo guardar.' })
     }
   }
 
@@ -260,6 +248,48 @@ const WishlistPage = () => {
 
   return (
     <div className="min-h-screen relative">
+      {statusMessage.text && (
+        <div className={`fixed bottom-6 right-6 z-50 px-6 py-3.5 rounded-2xl shadow-xl border text-sm font-bold flex items-center gap-2 bg-white transition-all ${
+          statusMessage.type === 'success' ? 'border-verde text-gray-900' : statusMessage.type === 'error' ? 'border-red-300 text-red-600' : 'border-celeste text-gray-700'
+        }`}>
+          <div className={`w-2.5 h-2.5 rounded-full ${statusMessage.type === 'success' ? 'bg-verde' : statusMessage.type === 'error' ? 'bg-red-500' : 'bg-celeste'}`} />
+          {statusMessage.text}
+        </div>
+      )}
+
+      {confirmAction.show && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full mx-4">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              {confirmAction.type === 'eliminar' ? '¿Quitar de tu selección?' : '¿Marcar como adquirido?'}
+            </h3>
+            <p className="text-gray-600 text-sm mb-6">
+              {confirmAction.type === 'eliminar' 
+                ? 'Este producto se eliminará de tu wishlist.'
+                : 'Se quitará de la wishlist y se agregará a tu armario.'}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmAction({ show: false, type: '', id: null, action: null })}
+                className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold rounded-2xl transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmAction.action}
+                className={`flex-1 px-4 py-2.5 text-white font-semibold rounded-2xl transition-all ${
+                  confirmAction.type === 'eliminar' 
+                    ? 'bg-red-500 hover:bg-red-600' 
+                    : 'bg-[#79d063] hover:bg-[#79d063]/90'
+                }`}
+              >
+                {confirmAction.type === 'eliminar' ? 'Eliminar' : 'Adquirido'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <header className="sticky top-0 z-30 bg-[#ffffff] shadow-sm px-8 py-4">
         <div className="flex items-center justify-between">
           <button
@@ -327,11 +357,12 @@ const WishlistPage = () => {
               </p>
             )}
             {!loadingWishlist && filtradosSeleccion.length > 0 && (
-              <Masonry
-                breakpointCols={breakpointColumnsObj}
-                className="flex gap-6"
-                columnClassName="flex-1"
-              >
+              <div style={{ maxWidth: '1600px', margin: '0 auto' }}>
+                <Masonry
+                  breakpointCols={breakpointColumnsObj}
+                  className="flex gap-6"
+                  columnClassName=""
+                >
                 {filtradosSeleccion.map((item) => (
                   <div key={item.id} className="mb-6 break-inside-avoid">
                     <div
@@ -393,8 +424,7 @@ const WishlistPage = () => {
                     </div>
                   </div>
                 ))}
-              </Masonry>
-            )}
+              </Masonry>              </div>            )}
           </div>
         )}
 
@@ -430,11 +460,12 @@ const WishlistPage = () => {
               <p className="text-center text-gray-600 py-8">No hay productos para mostrar. Prueba otra búsqueda o categoría.</p>
             )}
             {!loadingExplore && exploreProducts.length > 0 && (
-              <Masonry
-                breakpointCols={breakpointColumnsObj}
-                className="flex gap-6"
-                columnClassName="flex-1"
-              >
+              <div style={{ maxWidth: '1600px', margin: '0 auto' }}>
+                <Masonry
+                  breakpointCols={breakpointColumnsObj}
+                  className="flex gap-6"
+                  columnClassName=""
+                >
                 {exploreProducts.map((p) => (
                   <div key={`${p.tienda}-${p.product_id}`} className="mb-6 break-inside-avoid">
                     <div
@@ -469,6 +500,7 @@ const WishlistPage = () => {
                   </div>
                 ))}
               </Masonry>
+              </div>
             )}
           </div>
         )}
