@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
 import authService from '../services/authService'
-import logo1 from '../assets/logo1.png'
+import logo6 from '../assets/logo6.png'
 import Swal from 'sweetalert2'
 
 function Registro() {
@@ -53,7 +53,7 @@ function Registro() {
         
         <div className="flex justify-center mb-6">
           <img 
-            src={logo1} 
+            src={logo6} 
             alt="PinWand Logo" 
             className="h-16 w-auto object-contain"
           />

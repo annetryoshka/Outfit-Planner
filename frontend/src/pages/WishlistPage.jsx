@@ -2,7 +2,7 @@ import React, { useState, useEffect, useCallback } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import Masonry from 'react-masonry-css'
 import { Search, ExternalLink, Trash, Sparkles, X, Plus } from 'lucide-react'
-import logo3 from '../assets/logo3.png'
+import logo6 from '../assets/logo6.png'
 import wishlistService from '../services/wishlistService'
 
 const WishlistPage = () => {
@@ -296,7 +296,7 @@ const WishlistPage = () => {
             onClick={() => navigate('/')}
             className="h-10 w-auto cursor-pointer mr-6 hover:opacity-90 transition-all"
           >
-            <img src={logo3} alt="PinWand" className="h-full w-auto object-contain" />
+            <img src={logo6} alt="PinWand" className="h-full w-auto object-contain" />
           </button>
 
           <nav className="flex gap-8">

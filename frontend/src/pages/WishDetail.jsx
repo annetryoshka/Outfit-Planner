@@ -2,7 +2,7 @@ import React, { useEffect, useState } from 'react'
 import { useNavigate, useLocation, useParams } from 'react-router-dom'
 import { Search, Heart, MessageCircle, Upload, MoreHorizontal } from 'lucide-react'
 import Masonry from 'react-masonry-css'
-import logo3 from '../assets/logo3.png'
+import logo6 from '../assets/logo6.png'
 import wishlistService from '../services/wishlistService'
 
 const fmt = (s) => {
@@ -192,7 +192,7 @@ const WishDetail = () => {
             onClick={() => navigate('/')}
             className="h-10 w-auto cursor-pointer mr-6 hover:opacity-90 transition-all"
           >
-            <img src={logo3} alt="PinWand" className="h-full w-auto object-contain" />
+            <img src={logo6} alt="PinWand" className="h-full w-auto object-contain" />
           </button>
           <div className="flex-1 relative">
             <Search className="absolute left-4 top-1/2 -translate-y-1/2 w-5 h-5 text-gray-400" />

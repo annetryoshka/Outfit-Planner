@@ -8,7 +8,7 @@ import { normalizeForDb, alignValueToOptions } from '../utils/normalizeForDb'
 
 const tipos = ['Superior', 'Inferior', 'Calzado', 'Accesorio', 'Otros']
 const categorias = ['Camisa', 'Polera', 'Pantalón', 'Shorts', 'Vestido', 'Abrigo', 'Falda', 'Blusa', 'Jeans', 'Chaquetas',  'Bolso',  'Bufanda',  'Guantes']
-const colores = ['Negro', 'Celeste', 'Amarillo', 'Blanco', 'Gris', 'Azul', 'Rojo', 'Verde', 'Verde Claro', 'Beige', 'Marrón', 'Rosa',  'Morado']
+const colores = ['Negro', 'Celeste', 'Amarillo', 'Blanco', 'Gris', 'Azul', 'Rojo', 'Verde', 'Verde Claro', 'Beige', 'Marrón', 'Rosado',  'Morado']
 const tallas = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
 const temporadas = ['Primavera', 'Verano', 'Otoño', 'Invierno']
 const materiales = ['Algodón', 'Lana',  'Polar', 'Corderoy','Seda', 'Lino', 'Poliéster', 'Denim', 'Cuero']
