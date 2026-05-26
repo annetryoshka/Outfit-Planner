@@ -4,7 +4,23 @@ const prendaController = require('../controllers/prendaController');
 const authMiddleware = require('../middleware/auth');
 const upload = require('../middleware/multer');
 
+// IMPORTANTE: esta ruta va ANTES del authMiddleware porque es pública
+// Cualquier usuario (logueado o no) puede ver el feed global
+router.get('/publicas', prendaController.obtenerPublicas);
+
+// Todas las rutas de aquí en adelante requieren autenticación
 router.use(authMiddleware);
+
+/**
+ * @swagger
+ * /api/prendas/publicas:
+ *   get:
+ *     summary: Obtener todas las prendas públicas (feed global, sin auth)
+ *     tags: [Prendas]
+ *     responses:
+ *       200:
+ *         description: Lista de prendas públicas de todos los usuarios
+ */
 
 /**
  * @swagger
@@ -73,7 +89,7 @@ router.post(
  * @swagger
  * /api/prendas:
  *   get:
- *     summary: Obtener todas mis prendas
+ *     summary: Obtener todas MIS prendas (solo las del usuario logueado)
  *     tags: [Prendas]
  *     responses:
  *       200:

@@ -13,6 +13,9 @@ export default {
         'morado': '#9f8aef',
         'celeste': '#c2e1f9',
         'verde': '#79d063',
+      },
+      fontFamily: {
+        subtitulo: ['BookmaniaGit', 'serif'],
       }
     },
   },

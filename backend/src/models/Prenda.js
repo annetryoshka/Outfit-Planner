@@ -11,6 +11,14 @@ const Prenda = {
     return result.rows[0]
   },
 
+  // Feed global tipo Pinterest: todas las prendas públicas de todos los usuarios
+  async findAllPublicas() {
+    const result = await pool.query(
+      `SELECT * FROM prendas WHERE publico = true ORDER BY created_at DESC`
+    )
+    return result.rows
+  },
+
   async findByUser(user_id) {
     const result = await pool.query(
       `SELECT * FROM prendas WHERE user_id = $1 ORDER BY created_at DESC`,
