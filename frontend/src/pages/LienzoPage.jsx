@@ -159,12 +159,7 @@ export default function LienzoPage() {
       }
 
       await outfitService.actualizar(id, formData);
-      Swal.fire({
-        icon: 'success',
-        title: 'Éxito',
-        text: 'Outfit optimizado y guardado',
-        confirmButtonColor: '#9f8aef'
-      });
+      navigate('/calendario');
       
     } catch (err) {
       console.error(err);
@@ -182,7 +177,7 @@ export default function LienzoPage() {
   const coloresFondo = ['#ffffff', '#000000', '#f6ccfa', '#c2e1f9', '#fafbad', '#fde8e8', '#d4f1d4', '#3D2B1F']
 
   return (
-    <div className="min-h-screen bg-gray-50 flex flex-col">
+    <div className="h-screen bg-gray-50 flex flex-col overflow-hidden">
 
       {/* Header */}
       <div className="bg-white border-b border-[#f6ccfa] px-6 py-3 flex items-center gap-4">
@@ -233,11 +228,11 @@ export default function LienzoPage() {
         </div>
 
         {/* Canvas central */}
-        <div className="flex-1 flex items-center justify-center bg-gray-100 p-8">
-          <div className="shadow-2xl rounded-2xl overflow-hidden">
-            <canvas ref={canvasRef} />
-          </div>
-        </div>
+<div className="flex-1 flex items-center justify-center bg-gray-100 p-8 overflow-auto">
+  <div className="shadow-2xl rounded-2xl overflow-hidden flex-shrink-0">
+    <canvas ref={canvasRef} />
+  </div>
+</div>
 
         {/* Panel derecho — opciones */}
         <div className="w-48 bg-white border-l border-[#f6ccfa] p-4">

@@ -14,14 +14,22 @@ const Prenda = {
   // Feed global tipo Pinterest: todas las prendas públicas de todos los usuarios
   async findAllPublicas() {
     const result = await pool.query(
-      `SELECT * FROM prendas WHERE publico = true ORDER BY created_at DESC`
+      `SELECT p.*, u.nombre as autor_nombre, u.apellido as autor_apellido 
+       FROM prendas p
+       LEFT JOIN users u ON p.user_id = u.id
+       WHERE p.publico = true 
+       ORDER BY p.created_at DESC`
     )
     return result.rows
   },
 
   async findByUser(user_id) {
     const result = await pool.query(
-      `SELECT * FROM prendas WHERE user_id = $1 ORDER BY created_at DESC`,
+      `SELECT p.*, u.nombre as autor_nombre, u.apellido as autor_apellido 
+       FROM prendas p
+       LEFT JOIN users u ON p.user_id = u.id
+       WHERE p.user_id = $1 
+       ORDER BY p.created_at DESC`,
       [user_id]
     )
     return result.rows
@@ -29,7 +37,10 @@ const Prenda = {
 
   async findById(id) {
     const result = await pool.query(
-      `SELECT * FROM prendas WHERE id = $1`,
+      `SELECT p.*, u.nombre as autor_nombre, u.apellido as autor_apellido 
+       FROM prendas p
+       LEFT JOIN users u ON p.user_id = u.id
+       WHERE p.id = $1`,
       [id]
     )
     return result.rows[0]

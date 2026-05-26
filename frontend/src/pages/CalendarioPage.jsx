@@ -169,7 +169,9 @@ export default function CalendarioPage() {
     <div className="flex flex-row h-screen overflow-hidden">
       {/* Hijo izquierdo — Calendario grande (70%) */}
       <div className="w-[70%] flex flex-col h-full p-6 overflow-hidden">
-        <h1 className="text-2xl font-bold text-[#9f8aef] mb-6"> Mi Calendario </h1>
+        <h1 className="text-2xl font-subtitulo text-gray-800 mb-6">
+          Mi Calendario
+        </h1>
         
         {/* Grilla de calendario personalizado */}
         <div className="flex-1 bg-white rounded-2xl shadow-sm p-4 overflow-auto">
@@ -309,7 +311,7 @@ export default function CalendarioPage() {
         <div className="mb-6">
           {outfitsDia.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 text-center text-gray-400 shadow-sm">
-              <p className="text-3xl mb-2">👗</p>
+              <p className="text-3xl mb-2"></p>
               <p className="text-sm">No hay outfits para este día</p>
               <p className="text-xs mt-1">¡Añade uno o crea uno en el lienzo!</p>
             </div>
