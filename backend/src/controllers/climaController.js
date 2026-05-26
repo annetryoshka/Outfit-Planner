@@ -1,7 +1,4 @@
 const { getClima, getClimaPorCoordenadas } = require('../services/weatherService')
-const { GoogleGenAI } = require('@google/genai');
-
-const ai = new GoogleGenAI({ apiKey: process.env.GEMINI_API_KEY });
 
 const climaController = {
   async obtenerClima(req, res) {
@@ -115,26 +112,50 @@ const climaController = {
       }
 
       if (todasLasPrendas.length > 0) {
-        const response = await ai.models.generateContent({
-          model: 'gemini-2.5-flash',
-          contents: `Clima actual en ${clima.ciudad}: ${clima.temperatura}°C, Clasificación: ${clima.clasificacion}.`,
-          config: {
-            systemInstruction: `Eres el motor de estilismo de PinWand. Tu labor es armar el mejor outfit combinando prendas del clóset del usuario para el clima actual.
-            Debes intentar seleccionar máximo un elemento de cada tipo ('top', 'bottom', 'outerwear', 'shoes') si están disponibles, buscando que los colores y texturas hagan armonía visual.
+        // Conexión segura a OpenRouter para procesar el outfit con Gemini
+        const response = await fetch("https://openrouter.ai/api/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${process.env.OPENROUTER_API_KEY}`,
+            "Content-Type": "application/json"
+          },
+          body: JSON.stringify({
+            "model": "google/gemini-2.5-flash",
+            "temperature": 0.2, 
+            "max_tokens": 800,
+            "response_format": { "type": "json_object" },
+            "messages": [
+              {
+                "role": "system",
+                "content": `Eres el motor de estilismo de PinWand. Tu labor es armar el mejor outfit combinando prendas del clóset del usuario para el clima actual.
+                Debes intentar seleccionar máximo un elemento de cada tipo ('top', 'bottom', 'outerwear', 'shoes') si están disponibles, buscando que los colores y texturas hagan armonía visual.
 
-            INVENTARIO DE PRENDAS DISPONIBLES EN LA BASE DE DATOS:
-            ${JSON.stringify(todasLasPrendas)}
+                INVENTARIO DE PRENDAS DISPONIBLES EN LA BASE DE DATOS:
+                ${JSON.stringify(todasLasPrendas)}
 
-            DEBES DEVOLVER EXCLUSIVAMENTE UN OBJETO JSON con la siguiente estructura, sin textos extras ni markdown:
-            {
-              "idsSeleccionados": [1, 4, 7],
-              "consejoEstilo": "Tu consejo de por qué combinan de forma linda estas prendas específicas."
-            }`,
-            responseMimeType: "application/json"
-          }
+                DEBES DEVOLVER EXCLUSIVAMENTE UN OBJETO JSON con la siguiente estructura, sin textos extras ni markdown:
+                {
+                  "idsSeleccionados": [1, 4, 7],
+                  "consejoEstilo": "Tu consejo de por qué combinan de forma linda estas prendas específicas."
+                }`
+              },
+              {
+                "role": "user",
+                "content": `Clima actual en ${clima.ciudad}: ${clima.temperatura}°C, Clasificación: ${clima.clasificacion}.`
+              }
+            ]
+          })
         });
 
-        const decisionIA = JSON.parse(response.text);
+        if (!response.ok) {
+          const errorData = await response.json();
+          throw new Error(errorData.error?.message || 'Error en la API de OpenRouter al generar outfit.');
+        }
+
+        const data = await response.json();
+        const textoIA = data.choices[0].message.content;
+        
+        const decisionIA = JSON.parse(textoIA);
         
         todasLasPrendas.forEach(prenda => {
           if (decisionIA.idsSeleccionados.includes(prenda.id)) {
@@ -152,7 +173,6 @@ const climaController = {
           consejo: decisionIA.consejoEstilo || `Outfit armado con ${Object.keys(outfit).length} prendas de tu inventario`
         });
       }
-
 
       res.json({
         clima,
