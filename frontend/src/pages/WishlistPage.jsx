@@ -30,7 +30,8 @@ const WishlistPage = () => {
     imageFile: null,
     imagePreview: '',
     descripcion: '',
-    categoria: ''
+    categoria: '',
+    precio: '0.00'
   })
 
   const loadWishlist = useCallback(async () => {
@@ -122,8 +123,7 @@ const WishlistPage = () => {
       return
     }
 
-    const url_tienda =
-      formData.url?.trim() || `https://wishlist.local/manual/${Date.now()}`
+    const url_tienda = formData.url?.trim() || `https://wishlist.local/manual/${Date.now()}`
     const nombre = (
       formData.descripcion?.trim() ||
       formData.url?.trim() ||
@@ -133,17 +133,18 @@ const WishlistPage = () => {
     setFormSubmitting(true)
     try {
       await wishlistService.agregar({
-        nombre,
-        url_tienda,
-        imagen_url: null,
-        precio: null
+        nombre: nombre,
+        url_tienda: url_tienda,
+        imagen_url: formData.imagePreview || null,
+        precio: parseFloat(formData.precio) || 0.00
       })
       setFormData({
         url: '',
         imageFile: null,
         imagePreview: '',
         descripcion: '',
-        categoria: ''
+        categoria: '',
+        precio: '0.00'
       })
       await loadWishlist()
       setStatusMessage({ type: 'success', text: 'Producto añadido correctamente.' })
@@ -152,6 +153,36 @@ const WishlistPage = () => {
       setStatusMessage({ type: 'error', text: err.response?.data?.message || 'No se pudo guardar el producto.' })
     } finally {
       setFormSubmitting(false)
+    }
+  }
+  const handleUrlBlur = async () => {
+    if (!formData.url?.trim()) return
+
+    if (formData.url.includes('wishlist.local') || formData.url.includes('armariointerno.local')) return
+
+    setStatusMessage({ type: 'info', text: 'Escaneando enlace de la tienda...' })
+
+    try {
+      const response = await wishlistService.extraerDatosPorUrl(formData.url.trim())
+      const infoProducto = response?.data?.data || response?.data || response;
+
+      if (infoProducto && (infoProducto.imagen_url || infoProducto.nombre)) {
+        setFormData((prev) => ({
+          ...prev,
+          descripcion: infoProducto.nombre || prev.descripcion,
+          imagePreview: infoProducto.imagen_url || prev.imagePreview,
+          precio: infoProducto.precio || prev.precio || 0.00
+        }));
+        setStatusMessage({ type: 'success', text: '¡Datos del producto importados con éxito!' });
+      } else {
+        console.log("La respuesta de la API no contiene los campos esperados:", response);
+      }
+
+    } catch (err) {
+      console.error("Error al auto-escanear enlace:", err)
+      setStatusMessage({ type: 'info', text: 'No pudimos extraer datos automáticos, puedes rellenarlos manualmente.' })
+    } finally {
+      setLoadingScan(false)
     }
   }
 
@@ -522,6 +553,7 @@ const WishlistPage = () => {
                   name="url"
                   value={formData.url}
                   onChange={handleFormChange}
+                  onBlur={handleUrlBlur}
                   className="w-full px-4 py-3 border-2 border-gray-100 focus:border-rosado focus:ring-0 outline-none transition-all text-gray-800 bg-white"
                   placeholder="https://…"
                 />
@@ -529,39 +561,57 @@ const WishlistPage = () => {
               </div>
 
               <div>
-                <label className="block text-sm font-bold text-gray-700 mb-2">o subí una foto (opcional)</label>
-                <div
-                  className="relative border-2 border-dashed border-rosado/50 rounded-2xl p-8 text-center cursor-pointer hover:bg-rosado/10 transition-colors"
-                  onClick={() => document.getElementById('imageInput')?.click()}
-                >
-                  <input
-                    type="file"
-                    id="imageInput"
-                    accept="image/*"
-                    onChange={handleImageUpload}
-                    className="absolute inset-0 w-full h-full opacity-0 cursor-pointer"
-                  />
-                  {formData.imagePreview ? (
-                    <div className="relative">
-                      <img src={formData.imagePreview} alt="Preview" className="w-full h-48 object-cover rounded-lg" />
-                      <button
-                        type="button"
-                        onClick={handleRemoveImage}
-                        className="absolute top-2 right-2 bg-red-500 text-white p-1 rounded-full hover:bg-red-600"
-                      >
-                        <X className="w-4 h-4" />
-                      </button>
+              <label className="block text-sm font-bold text-gray-700 mb-2">o subí una foto (opcional)</label>
+              <div
+                className="relative border-2 border-dashed border-rosado/50 rounded-2xl p-8 text-center cursor-pointer hover:bg-rosado/10 transition-colors"
+                onClick={() => !formData.imagePreview && document.getElementById('imageInput')?.click()}
+              >
+                <input
+                  type="file"
+                  id="imageInput"
+                  accept="image/*"
+                  onChange={handleImageUpload}
+                  disabled={!!formData.imagePreview}
+                  className="absolute inset-0 w-full h-full opacity-0 cursor-pointer disabled:cursor-default"
+                />
+                
+                {formData.imagePreview ? (
+                  // El truco del key fuerza a React a pintar la foto nueva instantáneamente
+                  <div key={formData.imagePreview} className="relative flex flex-col items-center justify-center bg-gray-50 p-2 rounded-2xl border border-rosado/30 z-10">
+                    <img 
+                      src={formData.imagePreview} 
+                      alt="Preview" 
+                      className="w-full h-64 object-contain rounded-xl bg-white"
+                      referrerPolicy="no-referrer" // Evita que algunas tiendas bloqueen la foto por seguridad
+                      onError={(e) => {
+                        console.log("Error cargando imagen original, aplicando proxy/placeholder");
+                        e.target.onerror = null; 
+                        e.target.src = `https://images.weserv.nl/?url=${encodeURIComponent(formData.imagePreview)}`; // Proxy por si la imagen tiene políticas CORS estrictas
+                      }}
+                    />
+                    <button
+                      type="button"
+                      onClick={(e) => {
+                        e.stopPropagation(); // Evita que se abra el selector de archivos al borrar
+                        handleRemoveImage();
+                      }}
+                      className="absolute top-4 right-4 bg-red-500 hover:bg-red-600 text-white p-2 rounded-full shadow-md transition-all cursor-pointer z-20"
+                    >
+                      <X className="w-4 h-4" />
+                    </button>
+                    <p className="text-xs text-gray-400 mt-2">Imagen importada de la tienda correctamente</p>
+                  </div>
+                ) : (
+                  <div className="text-center">
+                    <div className="bg-rosado/20 rounded-full p-4 mb-4 inline-block">
+                      <Plus className="w-8 h-8 text-morado" />
                     </div>
-                  ) : (
-                    <div className="text-center">
-                      <div className="bg-rosado/20 rounded-full p-4 mb-4 inline-block">
-                        <Plus className="w-8 h-8 text-morado" />
-                      </div>
-                      <p className="text-gray-600 text-sm">Imagen de referencia (la URL sigue siendo la fuente principal para la tienda)</p>
-                    </div>
-                  )}
-                </div>
+                    <p className="text-gray-600 text-sm font-medium">Arrastra una imagen o selecciónala (Opcional)</p>
+                    <p className="text-xs text-gray-400 mt-1">Al pegar una URL válida, esta imagen se cargará automáticamente.</p>
+                  </div>
+                )}
               </div>
+            </div>
 
               <div>
                 <label className="block text-sm font-bold text-gray-700 mb-2">Nombre / notas</label>
