@@ -8,6 +8,7 @@ import flowerHover from '../assets/flower1.png'
 import asistenteService from '../services/asistenteService'
 import climaService from '../services/climaService'
 import prendaService from '../services/prendaService'
+import ReactMarkdown from 'react-markdown';
 
 // ── Una sola constante para alinear navbar y header del chat ──
 const NAVBAR_HEIGHT = '72px'
@@ -69,22 +70,42 @@ const HomePage = () => {
       .catch(() => {})
   }, [])
 
-  // ── Lógica del chat (Archivo 1 — sin tocar) ──
-  const enviarMensaje = async (texto) => {
-    const msg = texto || input
-    if (!msg.trim() || loadingChat) return
-    setInput('')
-    setMensajes(prev => [...prev, { role: 'user', content: msg }])
-    setLoadingChat(true)
-    try {
-      const data = await asistenteService.chat(msg)
-      setMensajes(prev => [...prev, { role: 'assistant', content: data.respuesta }])
-    } catch {
-      setMensajes(prev => [...prev, { role: 'assistant', content: 'Ups, algo salió mal 😅' }])
-    } finally {
-      setLoadingChat(false)
-    }
+  // ── Lógica del chat
+  const enviarMensaje = async (textoAlternativo) => {
+  const mensajeAEnviar = textoAlternativo || input;
+  if (!mensajeAEnviar.trim() || loadingChat) return;
+
+  const nuevoMensajeUsuario = { role: 'user', content: mensajeAEnviar };
+  
+
+  setMensajes((prev) => [...prev, nuevoMensajeUsuario]);
+  if (!textoAlternativo) setInput('');
+  
+  setLoadingChat(true);
+
+  try {
+    // 3. Llamamos al servicio (pasa tus prendas reales aquí si tienes el estado)
+    const respuestaTexto = await asistenteService.chat(mensajeAEnviar, prendas || []);
+
+    // 4. Creamos el objeto de respuesta de la IA usando '.content' para que tu JSX lo lea bien
+    const nuevoMensajeIA = { 
+      role: 'assistant', 
+      content: respuestaTexto // Aseguramos que se guarde en .content
+    };
+
+    // Agregamos la respuesta al estado
+    setMensajes((prev) => [...prev, nuevoMensajeIA]);
+
+  } catch (error) {
+    console.error("Error al enviar mensaje al asistente:", error);
+    setMensajes((prev) => [
+      ...prev, 
+      { role: 'assistant', content: "Lo siento, hubo un problema al conectar con el asistente." }
+    ]);
+  } finally {
+    setLoadingChat(false);
   }
+};
 
   const handleKey = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); enviarMensaje() }
@@ -381,18 +402,18 @@ const HomePage = () => {
                     </div>
                   )}
 
-                  {/* Burbujas de mensajes */}
-                  {mensajes.map((m, i) => (
-                    <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
-                      <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-relaxed ${
-                        m.role === 'user'
-                          ? 'bg-[#c2e1f9] border border-black/10 text-gray-800 rounded-br-sm'
-                          : 'bg-white border border-[#9f8aef] text-gray-700 rounded-bl-sm'
-                      }`}>
-                        {m.content}
-                      </div>
+                {/* Burbujas de mensajes */}
+                {mensajes.map((m, i) => (
+                  <div key={i} className={`flex ${m.role === 'user' ? 'justify-end' : 'justify-start'}`}>
+                    <div className={`max-w-[80%] px-3 py-2 rounded-2xl text-sm leading-relaxed whitespace-pre-line ${
+                      m.role === 'user'
+                        ? 'bg-[#c2e1f9] border border-black/10 text-gray-800 rounded-br-sm'
+                        : 'bg-white border border-[#9f8aef] text-gray-700 rounded-bl-sm'
+                    }`}>
+                      {m.content}
                     </div>
-                  ))}
+                  </div>
+                ))}
 
                   {/* Indicador de typing */}
                   {loadingChat && (
