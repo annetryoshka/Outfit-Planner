@@ -11,38 +11,40 @@ const climaRoutes = require('./src/routes/clima')
 const asistenteRoutes = require('./src/routes/asistente')
 const prendaRoutes = require('./src/routes/prenda')
 const wishlistRoutes = require('./src/routes/wishlist')
+const guardadoRoutes = require('./src/routes/guardado')
 const { specs, swaggerUi } = require('./src/config/swagger')
 const passport = require('passport')
-
 
 const app = express()
 const PORT = process.env.PORT || 3000
 
-//Middlewares
+// Middlewares
 app.use(cors())
 app.use(express.json())
-require('./src/config/passport' )
+require('./src/config/passport')
+app.use(passport.initialize())
 
-//rutas
+// Rutas
 app.use('/api/auth', authRoutes)
 app.use('/api/prendas', prendaRoutes)
 app.use('/api/outfits', outfitRoutes)
 app.use('/api/clima', climaRoutes)
 app.use('/api/asistente', asistenteRoutes)
 app.use('/api/wishlist', wishlistRoutes)
+app.use('/api/guardados', guardadoRoutes)
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs))
-app.use(passport.initialize())
 
-//ruta extra de prueba :vv
+// Ruta raíz
 app.get('/', (req, res) => {
   res.json({ message: 'Outfit Planner API funcionando uwuwewe' })
 })
 
-//ruta protegida de prueba :v
+// Ruta protegida de prueba
 app.get('/api/perfil', authMiddleware, (req, res) => {
   res.json({ message: 'Ruta protegida', usuario: req.usuario })
 })
 
+// Manejador de errores global
 app.use((err, req, res, next) => {
   console.error("Error detectado en el servidor:", err.stack);
   res.status(500).json({

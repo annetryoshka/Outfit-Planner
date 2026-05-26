@@ -8,6 +8,7 @@ import {
 } from 'lucide-react';
 import prendaService from '../services/prendaService';
 import outfitService from '../services/outfitService';
+import guardadoService from '../services/guardadoService';
 
 const Profile = () => {
   const [user, setUser] = useState(null);
@@ -20,7 +21,9 @@ const Profile = () => {
   const [armarioTab, setArmarioTab] = useState('armario');
   const [prendas, setPrendas] = useState([]);
   const [outfits, setOutfits] = useState([]);
+  const [guardados, setGuardados] = useState([]);
   const [wardrobeLoading, setWardrobeLoading] = useState(false);
+  const [guardadosLoading, setGuardadosLoading] = useState(false);
   
   const [searchTerm, setSearchTerm] = useState('');
   const [selectedCategory, setSelectedCategory] = useState('Todas');
@@ -52,6 +55,7 @@ const Profile = () => {
     }
   }, [navigate]);
 
+  // Carga prendas y outfits del usuario
   useEffect(() => {
     if (!user?.id) return;
     let cancelled = false;
@@ -68,10 +72,37 @@ const Profile = () => {
       .finally(() => {
         if (!cancelled) setWardrobeLoading(false);
       });
-    return () => {
-      cancelled = true;
-    };
+    return () => { cancelled = true; };
   }, [user?.id]);
+
+  // Carga guardados del usuario desde la API
+  useEffect(() => {
+    if (!user?.id) return;
+    let cancelled = false;
+    setGuardadosLoading(true);
+    guardadoService.obtenerMisGuardados()
+      .then(data => {
+        if (cancelled) return;
+        setGuardados(Array.isArray(data) ? data : []);
+      })
+      .catch(() => {
+        if (!cancelled) setGuardados([]);
+      })
+      .finally(() => {
+        if (!cancelled) setGuardadosLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, [user?.id]);
+
+  // Recarga guardados cuando el usuario navega a esa tab
+  useEffect(() => {
+    if (armarioTab !== 'guardados' || !user?.id) return;
+    setGuardadosLoading(true);
+    guardadoService.obtenerMisGuardados()
+      .then(data => setGuardados(Array.isArray(data) ? data : []))
+      .catch(() => setGuardados([]))
+      .finally(() => setGuardadosLoading(false));
+  }, [armarioTab, user?.id]);
 
   useEffect(() => {
     if (statusMessage.text) {
@@ -80,69 +111,53 @@ const Profile = () => {
     }
   }, [statusMessage]);
 
+  const handleDesguardar = async (prendaId) => {
+    try {
+      await guardadoService.desguardar(prendaId);
+      setGuardados(prev => prev.filter(p => String(p.id) !== String(prendaId)));
+    } catch {
+      setStatusMessage({ type: 'error', text: 'No se pudo quitar de guardados.' });
+    }
+  };
+
   const handleUploadMedia = async (e, type) => {
     const file = e.target.files[0];
     if (!file) return;
-
     if (!file.type.startsWith('image/')) {
       setStatusMessage({ type: 'error', text: 'Solo se permiten archivos de imagen.' });
       return;
     }
-
     if (type === 'avatar') setUploadingPhoto(true);
     if (type === 'fondo') setUploadingBackground(true);
-
     const bucketName = 'iconprofile';
-
     try {
       const ext = file.name.split('.').pop().toLowerCase();
       const fileName = `${type}/${type}_${Date.now()}.${ext}`;
-      
       const { error: uploadError } = await supabase.storage
         .from(bucketName)
         .upload(fileName, file, { cacheControl: '0', upsert: false });
-
       if (uploadError) throw uploadError;
-
-      const { data: urlData } = supabase.storage
-        .from(bucketName)
-        .getPublicUrl(fileName);
-
+      const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
       const publicUrl = urlData.publicUrl;
-      
-      // Creamos el estado local actualizado con la nueva URL estable
       const updatedPayload = {
         ...formData,
         ...(type === 'avatar' ? { foto_perfil: publicUrl } : { fondo: publicUrl })
       };
-
-      // 1. Forzamos la actualización visual en la pantalla de inmediato
       setUser(updatedPayload);
       setFormData(updatedPayload);
-
-      // 2. Le mandamos los datos al backend para que los guarde en la BD
       const result = await authService.updateUser(updatedPayload);
-      
-      // 3. Extraemos lo que responda el backend
       const backendUser = result?.user || result?.usuario || result;
-      
-      // 4. Fusionamos de forma segura: Priorizamos los datos del backend,
-      // pero ASEGURAMOS que mantenga las URLs de las imágenes que acabamos de generar.
       const finalUser = {
-        ...updatedPayload, // Base con las nuevas imágenes garantizadas
-        ...backendUser,    // Datos que el backend quiera actualizar (nombre, bio, etc.)
-        foto_perfil: updatedPayload.foto_perfil, // Forzado absoluto
-        fondo: updatedPayload.fondo              // Forzado absoluto
+        ...updatedPayload,
+        ...backendUser,
+        foto_perfil: updatedPayload.foto_perfil,
+        fondo: updatedPayload.fondo
       };
-      
-      // 5. Consolidamos en los estados y almacenamiento local
       setUser(finalUser);
       setFormData(finalUser);
       localStorage.setItem('usuario', JSON.stringify(finalUser));
-      
       setStatusMessage({ type: 'success', text: 'Imagen sincronizada correctamente.' });
     } catch (err) {
-      console.error("=== ERROR EN LA SUBIDA ===", err);
       setStatusMessage({ type: 'error', text: `Error: ${err.message || 'No se pudo guardar la imagen'}` });
     } finally {
       setUploadingPhoto(false);
@@ -162,7 +177,7 @@ const Profile = () => {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
-    loading(true);
+    setLoading(true);
     try {
       const result = await authService.updateUser(formData);
       const updatedUser = result.usuario || result.user || result;
@@ -206,7 +221,7 @@ const Profile = () => {
 
       <div className="w-full max-w-6xl bg-white h-fit shadow-sm flex flex-col relative mb-12">
         
-        {/* PORTADA - AHORA USA EL ESTADO USER ACTUALIZADO EN TIEMPO REAL */}
+        {/* PORTADA */}
         <div 
           className="h-44 w-full relative bg-cover bg-center border-b border-gray-100"
           style={{ 
@@ -226,13 +241,9 @@ const Profile = () => {
           <input type="file" ref={fileInputRef} onChange={(e) => handleUploadMedia(e, 'avatar')} accept="image/*" className="hidden" />
           <input type="file" ref={backgroundInputRef} onChange={(e) => handleUploadMedia(e, 'fondo')} accept="image/*" className="hidden" />
 
-          {/* OVERLAY DE EDICIÓN EN PORTADA */}
           {isEditing && (
             <div 
-              onClick={(e) => {
-                e.stopPropagation(); 
-                backgroundInputRef.current.click();
-              }}
+              onClick={(e) => { e.stopPropagation(); backgroundInputRef.current.click(); }}
               className="absolute inset-0 bg-black/40 backdrop-blur-[2px] opacity-0 hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-center gap-2 cursor-pointer z-10 text-white"
             >
               <Camera className="w-8 h-8 stroke-[2.5]" />
@@ -246,7 +257,7 @@ const Profile = () => {
           )}
         </div>
 
-        {/* CONTENEDOR DE INFORMACIÓN */}
+        {/* INFORMACIÓN DEL USUARIO */}
         <div className="px-8 pb-6 flex flex-col items-center md:items-start gap-4 border-b border-gray-100 relative bg-white">
           
           {!isEditing && (
@@ -260,8 +271,6 @@ const Profile = () => {
           )}
 
           <div className="flex flex-col items-center md:items-start w-full">
-            
-            {/* AVATAR ANCLADO CON MARGEN NEGATIVO */}
             <div className="-mt-16 relative z-20 mb-3 flex-none">
               <div className="w-32 h-32 bg-white rounded-3xl p-1.5 shadow-md overflow-hidden relative border border-gray-100 group/avatar">
                 {uploadingPhoto ? (
@@ -275,8 +284,6 @@ const Profile = () => {
                     <User className="w-14 h-14 text-gray-300" />
                   </div>
                 )}
-
-                {/* OVERLAY DE EDICIÓN EN AVATAR */}
                 {isEditing && (
                   <div 
                     onClick={() => fileInputRef.current.click()}
@@ -289,7 +296,6 @@ const Profile = () => {
               </div>
             </div>
 
-            {/* SECCIÓN DE DATOS O FORMULARIO */}
             <div className="w-full space-y-4 text-center md:text-left">
               {isEditing ? (
                 <form onSubmit={handleSubmit} className="space-y-3 max-w-xl mx-auto md:mx-0">
@@ -303,7 +309,6 @@ const Profile = () => {
                     <input type="checkbox" id="es_privado" name="es_privado" checked={formData.es_privado || false} onChange={handleChange} className="rounded text-morado focus:ring-0 w-4 h-4" />
                     <label htmlFor="es_privado" className="text-sm font-medium text-gray-500">Habilitar cuenta privada</label>
                   </div>
-                  
                   <div className="flex items-center justify-center md:justify-start gap-2 pt-2">
                     <button type="submit" disabled={loading} className="px-5 py-2 bg-gray-900 text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors shadow-sm inline-flex items-center gap-1.5">
                       <Check className="w-4 h-4" /> {loading ? 'Guardando...' : 'Confirmar'}
@@ -321,11 +326,9 @@ const Profile = () => {
                       <Mail className="w-4 h-4 text-gray-300" /> {user.email}
                     </p>
                   </div>
-
                   <p className="text-base text-gray-600 max-w-2xl font-medium leading-relaxed bg-slate-50/60 p-4 rounded-2xl border border-gray-100 mx-auto md:mx-0 text-left">
                     {user.bio || '💡 Configurando combinaciones perfectas desde tu armario.'}
                   </p>
-                  
                   <div className="flex flex-wrap justify-center md:justify-start gap-2.5 pt-1 text-xs font-semibold text-gray-500">
                     <span className="flex items-center gap-1 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
                       <MapPin className="w-3.5 h-3.5 text-morado" /> {user.ciudad || 'La Paz, Bolivia'}
@@ -343,12 +346,13 @@ const Profile = () => {
           </div>
         </div>
 
-        {/* PESTAÑAS DEL ARMARIO */}
+        {/* PESTAÑAS */}
         <div className="flex justify-center px-8 border-b border-gray-100 bg-white w-full">
           {[
-            { id: 'armario', label: 'Mi Armario Virtual' },
-            { id: 'outfits', label: 'Outfits Guardados' },
-            { id: 'pruebas', label: 'Módulo Try-On' },
+            { id: 'armario',   label: 'Mi Armario Virtual' },
+            { id: 'outfits',   label: 'Outfits Guardados' },
+            { id: 'guardados', label: 'Mis Guardados' },
+            { id: 'pruebas',   label: 'Módulo Try-On' },
           ].map((tab) => (
             <button
               key={tab.id}
@@ -365,8 +369,10 @@ const Profile = () => {
           ))}
         </div>
 
-        {/* CONTENIDO INTERNO */}
+        {/* CONTENIDO */}
         <div className="p-8 bg-slate-50/50 flex-1">
+
+          {/* TAB: ARMARIO */}
           {armarioTab === 'armario' && (
             <>
               <div className="w-full max-w-4xl mx-auto mb-8 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center gap-4">
@@ -381,7 +387,6 @@ const Profile = () => {
                       className="w-full pl-10 pr-3 py-2 bg-gray-50 focus:bg-white border border-transparent focus:border-morado rounded-xl text-sm focus:outline-none transition-all"
                     />
                   </div>
-
                   <div className="flex flex-wrap items-center justify-center gap-1.5">
                     {categoriasDisponibles.map((cat) => (
                       <button
@@ -398,7 +403,6 @@ const Profile = () => {
                     ))}
                   </div>
                 </div>
-
                 <div className="flex items-center justify-center gap-2.5 pt-2 border-t border-gray-50 w-full max-w-md">
                   {coloresFiltro.map((col) => (
                     <button
@@ -508,6 +512,64 @@ const Profile = () => {
             </div>
           )}
 
+          {/* TAB: GUARDADOS */}
+          {armarioTab === 'guardados' && (
+            <div className="max-w-5xl mx-auto pb-8">
+              <div className="flex justify-between items-center mb-6">
+                <h3 className="text-xs font-bold text-gray-400 uppercase tracking-widest">
+                  Prendas Guardadas ({guardados.length})
+                </h3>
+              </div>
+
+              {guardadosLoading ? (
+                <div className="text-center py-16">
+                  <div className="w-6 h-6 border-2 border-morado border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-gray-400 text-sm font-medium">Cargando guardados...</p>
+                </div>
+              ) : guardados.length === 0 ? (
+                <div className="bg-white border border-dashed border-gray-200 rounded-2xl py-12 px-4 text-center shadow-sm max-w-md mx-auto">
+                  <Search className="w-8 h-8 text-gray-200 mx-auto mb-2" />
+                  <p className="text-gray-400 text-sm font-medium">Aún no has guardado ninguna prenda.</p>
+                  <p className="text-gray-300 text-xs mt-1">Explora el feed y guarda las que te inspiren 💜</p>
+                </div>
+              ) : (
+                <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-4 max-w-5xl mx-auto pb-8">
+                  {guardados.map((p) => (
+                    <div key={p.id} className="group relative bg-white rounded-2xl overflow-hidden border border-gray-100 hover:border-morado/40 transition-all text-left shadow-sm hover:shadow">
+                      <button
+                        onClick={() => navigate(`/prenda/${p.id}`)}
+                        className="w-full text-left"
+                      >
+                        <div className="aspect-square bg-slate-50 overflow-hidden relative">
+                          <img src={p.imagen_url} alt={p.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
+                          {p.color && (
+                            <div className="absolute top-2 right-2 px-1.5 py-0.5 rounded bg-white/90 text-[10px] font-bold uppercase text-gray-500 border border-gray-100">
+                              {p.color}
+                            </div>
+                          )}
+                        </div>
+                        <div className="p-3.5">
+                          <p className="text-sm font-bold text-gray-900 truncate group-hover:text-morado transition-colors">{p.nombre}</p>
+                          {p.categoria && (
+                            <p className="text-[10px] text-gray-400 font-bold uppercase mt-0.5 tracking-wider">{p.categoria}</p>
+                          )}
+                        </div>
+                      </button>
+                      {/* Botón quitar de guardados — aparece en hover */}
+                      <button
+                        onClick={() => handleDesguardar(p.id)}
+                        title="Quitar de guardados"
+                        className="absolute top-2 left-2 w-7 h-7 bg-white/90 hover:bg-red-50 border border-gray-200 hover:border-red-300 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition-all shadow-sm"
+                      >
+                        <X className="w-3.5 h-3.5 text-gray-400 hover:text-red-400" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+
           {/* TAB: TRY-ON */}
           {armarioTab === 'pruebas' && (
             <div className="bg-white border border-gray-100 rounded-2xl py-16 px-4 text-center shadow-sm max-w-md mx-auto">
@@ -518,6 +580,7 @@ const Profile = () => {
               </p>
             </div>
           )}
+
         </div>
       </div>
     </div>

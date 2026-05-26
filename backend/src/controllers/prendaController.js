@@ -19,6 +19,7 @@ const prendaController = {
       res.status(500).json({ message: error.message || 'Error al procesar la imagen' })
     }
   },
+
   async crear(req, res) {
     try {
       if (!req.file) {
@@ -88,6 +89,22 @@ const prendaController = {
       res.status(400).json({ message: 'Error creando prenda', error: error.message })
     }
   },
+
+  // Feed global: todas las prendas públicas de todos los usuarios (sin filtro de user_id)
+ // Feed global: todas las prendas públicas de todos los usuarios mezcladas aleatoriamente ✨
+  async obtenerPublicas(req, res) {
+    try {
+      const prendas = await Prenda.findAllPublicas()
+      
+      // 🪄 Algoritmo de mezcla aleatoria (Shuffle)
+      const prendasMezcladas = prendas.sort(() => Math.random() - 0.5)
+      
+      res.json(prendasMezcladas)
+    } catch (error) {
+      res.status(500).json({ message: 'Error al obtener prendas públicas', error: error.message })
+    }
+  },
+
   async obtenerMisPrendas(req, res) {
     try {
       const prendas = await Prenda.findByUser(req.usuario.id)
@@ -96,6 +113,7 @@ const prendaController = {
       res.status(500).json({ message: 'Error al obtener prendas', error: error.message })
     }
   },
+
   async obtenerPorId(req, res) {
     try {
       const prenda = await Prenda.findById(req.params.id)
@@ -105,6 +123,7 @@ const prendaController = {
       res.status(500).json({ message: 'Error al obtener prenda', error: error.message })
     }
   },
+
   async actualizar(req, res) {
     try {
       const existente = await Prenda.findById(req.params.id)
@@ -161,17 +180,16 @@ const prendaController = {
       res.status(400).json({ message: 'Error al actualizar prenda', error: error.message })
     }
   },
+
   async eliminar(req, res) {
     try {
       const prenda = await Prenda.findById(req.params.id);
       if (!prenda) return res.status(404).json({ message: 'Prenda no encontrada' });
 
-      // Eliminar imagen del bucket si existe
       if (prenda.imagen_url) {
         await deleteFromStorage(prenda.imagen_url, 'prendas');
       }
 
-      // Luego eliminar de la BD
       await Prenda.delete(req.params.id);
       res.json({ message: 'Prenda eliminada' });
     } catch (error) {
@@ -179,4 +197,5 @@ const prendaController = {
     }
   }
 }
+
 module.exports = prendaController
