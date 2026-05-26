@@ -7,7 +7,7 @@ Aplicación fullstack de gestión de closet virtual con IA, recomendaciones de o
 | Backend | Node.js + Express.js |
 | Base de datos | PostgreSQL (Supabase) |
 | Autenticación | JWT + Google OAuth 2.0 |
-| IA / Chat | xd |
+| IA / Chat | GEMINI |
 | Clima | OpenWeather API |
 | Documentación | Swagger UI |
 | Frontend | React + Vite + Tailwind CSS |
@@ -100,7 +100,9 @@ npm run dev
 ```bash
 cd ../frontend
 npm install
+npm install react-markdown
 npm run dev
+
 ```
 
 ## Endpoints principales
