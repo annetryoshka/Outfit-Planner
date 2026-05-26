@@ -9,9 +9,126 @@ import wallpaper5 from '../assets/wallpaper5.png'
 import asistenteService from '../services/asistenteService'
 import climaService from '../services/climaService'
 import prendaService from '../services/prendaService'
+import guardadoService from '../services/guardadoService'
 
 // ── Una sola constante para alinear navbar y header del chat ──
 const NAVBAR_HEIGHT = '72px'
+
+// ── Componente PinCard estilo Pinterest ──
+const PinCard = ({ item, miUserId, guardadosIds, guardandoId, onNavigate, onEdit, onGuardar }) => {
+  const [menuOpen, setMenuOpen] = React.useState(false)
+
+  const handleCopyLink = (e) => {
+    e.stopPropagation()
+    const url = `${window.location.origin}/prenda/${item.id}`
+    navigator.clipboard.writeText(url).catch(() => {})
+    setMenuOpen(false)
+  }
+
+  const handleDownload = async (e) => {
+    e.stopPropagation()
+    setMenuOpen(false)
+    if (!item.imagen_url) return
+    try {
+      const res = await fetch(item.imagen_url)
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `${item.nombre || 'prenda'}.jpg`
+      a.click()
+      URL.revokeObjectURL(url)
+    } catch {
+      window.open(item.imagen_url, '_blank')
+    }
+  }
+
+  const esMio = String(item.user_id) === String(miUserId)
+
+  return (
+    <div className="mb-4 break-inside-avoid group/pin cursor-pointer" onClick={onNavigate}>
+
+      {/* ── Imagen ── */}
+      <div className="relative rounded-2xl overflow-hidden">
+        {item.imagen_url
+          ? <img src={item.imagen_url} alt={item.nombre} className="w-full object-cover transition-transform duration-500 group-hover/pin:scale-105" />
+          : <div className="w-full h-48 bg-gradient-to-br from-[#f6ccfa] to-[#c2e1f9] flex items-center justify-center text-4xl rounded-2xl">👕</div>
+        }
+        <div className="absolute inset-0 bg-black/20 opacity-0 group-hover/pin:opacity-100 transition-opacity duration-300 rounded-2xl" />
+
+        {/* Botón acción principal — mismo tamaño de siempre */}
+        {esMio ? (
+          <button
+            onClick={onEdit}
+            className="absolute top-4 right-4 bg-[#9f8aef] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover/pin:opacity-100 transition-all duration-300 shadow-md hover:brightness-90">
+            Editar
+          </button>
+        ) : (
+          <button
+            onClick={onGuardar}
+            disabled={guardandoId === item.id}
+            className={`absolute top-4 right-4 text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover/pin:opacity-100 transition-all duration-300 shadow-md disabled:opacity-60 hover:brightness-90 ${
+              guardadosIds.has(String(item.id)) ? 'bg-[#9f8aef]' : 'bg-[#79d063]'
+            }`}>
+            {guardandoId === item.id ? '...' : guardadosIds.has(String(item.id)) ? 'Guardado ✓' : 'Guardar'}
+          </button>
+        )}
+      </div>
+
+      {/* ── Fila inferior: nombre + 3 puntitos FUERA de la imagen ── */}
+      <div className="mt-2 px-1 flex items-center justify-between gap-2 relative">
+        <p className="text-sm font-semibold text-gray-800 truncate flex-1">{item.nombre}</p>
+
+        {/* Botón 3 puntitos */}
+        <div className="relative flex-shrink-0">
+          <button
+            onClick={e => { e.stopPropagation(); setMenuOpen(prev => !prev) }}
+            className="w-7 h-7 flex items-center justify-center rounded-full hover:bg-gray-100 transition-colors"
+          >
+            {/* Icono 3 puntos horizontales (SVG limpio, sin emojis) */}
+            <svg width="16" height="16" viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+              <circle cx="3" cy="8" r="1.4" fill="#374151"/>
+              <circle cx="8" cy="8" r="1.4" fill="#374151"/>
+              <circle cx="13" cy="8" r="1.4" fill="#374151"/>
+            </svg>
+          </button>
+
+          {menuOpen && (
+            <>
+              <div className="fixed inset-0 z-10" onClick={e => { e.stopPropagation(); setMenuOpen(false) }} />
+              <div className="absolute bottom-8 right-0 z-20 bg-white rounded-2xl shadow-xl border border-gray-100 overflow-hidden min-w-[170px]">
+                <button
+                  onClick={handleCopyLink}
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2.5"
+                >
+                  {/* Link icon */}
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                  </svg>
+                  Copiar enlace
+                </button>
+                <button
+                  onClick={handleDownload}
+                  className="w-full px-4 py-3 text-left text-sm font-medium text-gray-700 hover:bg-gray-50 transition-colors flex items-center gap-2.5"
+                >
+                  {/* Download icon */}
+                  <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" className="text-gray-500">
+                    <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+                    <polyline points="7 10 12 15 17 10"/>
+                    <line x1="12" y1="15" x2="12" y2="3"/>
+                  </svg>
+                  Descargar imagen
+                </button>
+              </div>
+            </>
+          )}
+        </div>
+      </div>
+
+    </div>
+  )
+}
 
 const HomePage = () => {
   const navigate = useNavigate()
@@ -37,6 +154,10 @@ const HomePage = () => {
   const [misPrendas, setMisPrendas]             = useState([])
   const [loadingPrendas, setLoadingPrendas]     = useState(true)
   const [prendasMensaje, setPrendasMensaje]     = useState(null)
+
+  // IDs de prendas ya guardadas por el usuario (para estado visual del botón)
+  const [guardadosIds, setGuardadosIds] = useState(new Set())
+  const [guardandoId, setGuardandoId]   = useState(null) // prenda en proceso
 
   // ── Effects ──
   useEffect(() => {
@@ -67,6 +188,18 @@ const HomePage = () => {
   }, [])
 
   useEffect(() => {
+    // Carga los IDs de prendas ya guardadas para mostrar estado visual correcto
+    const token = localStorage.getItem('token')
+    if (!token) return
+    guardadoService.obtenerMisGuardados()
+      .then(data => {
+        const ids = new Set((Array.isArray(data) ? data : []).map(p => String(p.id)))
+        setGuardadosIds(ids)
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     if (mensajesRef.current) mensajesRef.current.scrollTop = mensajesRef.current.scrollHeight
   }, [mensajes])
 
@@ -93,6 +226,26 @@ const HomePage = () => {
       setMensajes(prev => [...prev, { role: 'assistant', content: 'Ups, algo salió mal 😅' }])
     } finally {
       setLoadingChat(false)
+    }
+  }
+
+  const toggleGuardar = async (e, prendaId) => {
+    e.stopPropagation()
+    if (guardandoId === prendaId) return // evita doble click
+    const yaGuardado = guardadosIds.has(String(prendaId))
+    setGuardandoId(prendaId)
+    try {
+      if (yaGuardado) {
+        await guardadoService.desguardar(prendaId)
+        setGuardadosIds(prev => { const next = new Set(prev); next.delete(String(prendaId)); return next })
+      } else {
+        await guardadoService.guardar(prendaId)
+        setGuardadosIds(prev => new Set([...prev, String(prendaId)]))
+      }
+    } catch {
+      // Si falla, no cambia el estado visual — silencioso
+    } finally {
+      setGuardandoId(null)
     }
   }
 
@@ -560,41 +713,20 @@ const HomePage = () => {
                   </div>
                 )}
 
-                {/* Grid Masonry — usa prendasMostradas para ambas pestañas */}
+                {/* Grid Masonry — estilo Pinterest puro */}
                 {prendasMostradas.length > 0 && (
-                  <Masonry breakpointCols={breakpointColumnsObj} className="flex gap-6" columnClassName="flex-1">
+                  <Masonry breakpointCols={breakpointColumnsObj} className="flex gap-4" columnClassName="flex-1">
                     {prendasMostradas.map(item => (
-                      <div key={item.id} className="mb-6 break-inside-avoid">
-                        <div className="bg-white rounded-3xl overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 cursor-pointer group"
-                          onClick={() => navigate(`/prenda/${item.id}`)}>
-                          <div className="relative overflow-hidden">
-                            {item.imagen_url
-                              ? <img src={item.imagen_url} alt={item.nombre} className="w-full object-cover transition-transform duration-500 group-hover:scale-105" />
-                              : <div className="w-full h-48 bg-gradient-to-br from-[#f6ccfa] to-[#c2e1f9] flex items-center justify-center text-4xl">👕</div>
-                            }
-                            <div className="absolute inset-0 bg-black/25 opacity-0 group-hover:opacity-100 transition-opacity duration-300" />
-                            {String(item.user_id) === String(miUserId)
-                              ? (
-                                <button
-                                  onClick={e => { e.stopPropagation(); navigate(`/editar-prenda/${item.id}`) }}
-                                  className="absolute top-4 right-4 bg-[#9f8aef] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                  Editar
-                                </button>
-                              ) : (
-                                <button
-                                  onClick={e => { e.stopPropagation(); console.log('Guardar prenda', item.id) }}
-                                  className="absolute top-4 right-4 bg-[#79d063] text-white font-bold px-4 py-2 rounded-full opacity-0 group-hover:opacity-100 transition-opacity duration-300">
-                                  Guardar
-                                </button>
-                              )
-                            }
-                          </div>
-                          <div className="p-3">
-                            <p className="text-sm font-medium text-gray-700 truncate">{item.nombre}</p>
-                            {item.tipo && <p className="text-xs text-gray-400 capitalize">{item.tipo}</p>}
-                          </div>
-                        </div>
-                      </div>
+                      <PinCard
+                        key={item.id}
+                        item={item}
+                        miUserId={miUserId}
+                        guardadosIds={guardadosIds}
+                        guardandoId={guardandoId}
+                        onNavigate={() => navigate(`/prenda/${item.id}`)}
+                        onEdit={e => { e.stopPropagation(); navigate(`/editar-prenda/${item.id}`) }}
+                        onGuardar={e => toggleGuardar(e, item.id)}
+                      />
                     ))}
                   </Masonry>
                 )}
