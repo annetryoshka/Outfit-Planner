@@ -7,7 +7,7 @@ import { normalizeForDb, alignValueToOptions } from '../utils/normalizeForDb'
 
 
 const tipos = ['Superior', 'Inferior', 'Calzado', 'Accesorio', 'Otros']
-const categorias = ['Camisa', 'Polera', 'Pantalón', 'Shorts', 'Vestido', 'Abrigo', 'Falda', 'Blusa', 'Jeans', 'Chaquetas',  'Bolso',  'Bufanda',  'Guantes']
+const categorias = ['Camisa', 'Polera', 'Pantalón', 'Shorts', 'Vestido','Chompa' ,'Abrigo', 'Falda', 'Blusa', 'Jeans', 'Chaquetas',  'Bolso',  'Bufanda',  'Guantes']
 const colores = ['Negro', 'Celeste', 'Amarillo', 'Blanco', 'Gris', 'Azul', 'Rojo', 'Verde', 'Verde Claro', 'Beige', 'Marrón', 'Rosado',  'Morado']
 const tallas = ['XS', 'S', 'M', 'L', 'XL', 'XXL']
 const temporadas = ['Primavera', 'Verano', 'Otoño', 'Invierno']
@@ -87,6 +87,8 @@ const AddPrenda = () => {
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState(null)
   const [loadingPrenda, setLoadingPrenda] = useState(!!editarId)
+  const [statusMessage, setStatusMessage] = useState({ type: '', text: '' })
+  const [confirmAction, setConfirmAction] = useState({ show: false, type: '', action: null })
 
   const [formData, setFormData] = useState({
     nombre: '',
@@ -99,6 +101,13 @@ const AddPrenda = () => {
     material: '',
     es_publico: false
   })
+
+  useEffect(() => {
+    if (statusMessage.text) {
+      const timer = setTimeout(() => setStatusMessage({ type: '', text: '' }), 4000)
+      return () => clearTimeout(timer)
+    }
+  }, [statusMessage])
 
   useEffect(() => {
     if (!editarId) return
@@ -208,15 +217,15 @@ const AddPrenda = () => {
     e.preventDefault()
     setSaveError(null)
     if (!isEdit && !imageFile) {
-      setSaveError('Selecciona una imagen de la prenda.')
+      setStatusMessage({ type: 'error', text: 'Selecciona una imagen de la prenda.' })
       return
     }
     if (isEdit && !imagePreview) {
-      setSaveError('La prenda debe tener una imagen.')
+      setStatusMessage({ type: 'error', text: 'La prenda debe tener una imagen.' })
       return
     }
     if (!localStorage.getItem('token')) {
-      setSaveError('Inicia sesión para guardar prendas.')
+      setStatusMessage({ type: 'error', text: 'Inicia sesión para guardar prendas.' })
       return
     }
 
@@ -227,6 +236,7 @@ const AddPrenda = () => {
         if (imageFile) fd.append('imagen', imageFile)
         appendCamposPrenda(fd)
         await prendaService.actualizar(editarId, fd)
+        setStatusMessage({ type: 'success', text: 'Prenda actualizada correctamente.' })
         navigate(`/prenda/${editarId}`)
         return
       }
@@ -236,36 +246,39 @@ const AddPrenda = () => {
       appendCamposPrenda(fd)
       fd.append('quitar_fondo', 'false')
       await prendaService.crear(fd)
+      setStatusMessage({ type: 'success', text: 'Prenda guardada correctamente.' })
       navigate('/')
     } catch (err) {
       const msg = err.response?.data?.message || err.response?.data?.error || err.message
-      setSaveError(typeof msg === 'string' ? msg : 'No se pudo guardar la prenda.')
+      setStatusMessage({ type: 'error', text: typeof msg === 'string' ? msg : 'No se pudo guardar la prenda.' })
     } finally {
       setSaving(false)
     }
   }
-  const handleEliminar = async () => {
-  if (!window.confirm('¿Estás seguro de que quieres eliminar esta prenda? Esta acción no se puede deshacer.')) {
-    return
+  const handleEliminar = () => {
+    setConfirmAction({
+      show: true,
+      type: 'eliminar',
+      action: async () => {
+        setSaving(true)
+        try {
+          await prendaService.eliminar(editarId)
+          setStatusMessage({ type: 'success', text: 'Prenda eliminada correctamente.' })
+          navigate('/')
+        } catch (err) {
+          const msg = err.response?.data?.message || err.response?.data?.error || err.message
+          setStatusMessage({ type: 'error', text: typeof msg === 'string' ? msg : 'No se pudo eliminar la prenda.' })
+        } finally {
+          setSaving(false)
+          setConfirmAction({ show: false, type: '', action: null })
+        }
+      }
+    })
   }
-  
-  setSaving(true)
-  setSaveError(null)
-  
-  try {
-    await prendaService.eliminar(editarId)
-    navigate('/')
-  } catch (err) {
-    const msg = err.response?.data?.message || err.response?.data?.error || err.message
-    setSaveError(typeof msg === 'string' ? msg : 'No se pudo eliminar la prenda.')
-  } finally {
-    setSaving(false)
-  }
-}
 
   const handleQuitarFondo = async (e) => {
     e.stopPropagation()
-    setSaveError(null)
+    setStatusMessage({ type: '', text: '' })
 
     let fileToProcess = imageFile
     if (!fileToProcess && imagePreview && typeof imagePreview === 'string' && imagePreview.startsWith('http')) {
@@ -279,17 +292,18 @@ const AddPrenda = () => {
         const ext = blob.type.includes('png') ? 'png' : blob.type.includes('webp') ? 'webp' : 'jpg'
         fileToProcess = new File([blob], `prenda.${ext}`, { type: blob.type || 'image/jpeg' })
       } catch (err) {
-        setSaveError(
-          err.message ||
+        setStatusMessage({
+          type: 'error',
+          text: err.message ||
             'No se pudo cargar la imagen para quitar el fondo (CORS o red). Sube de nuevo la foto desde tu dispositivo.'
-        )
+        })
         setBgRemovalLoading(false)
         return
       }
     }
 
     if (!fileToProcess) {
-      setSaveError('Primero selecciona una imagen.')
+      setStatusMessage({ type: 'error', text: 'Primero selecciona una imagen.' })
       setBgRemovalLoading(false)
       return
     }
@@ -307,7 +321,7 @@ const AddPrenda = () => {
       reader.readAsDataURL(newFile)
     } catch (err) {
       const msg = err.message || 'No se pudo quitar el fondo.'
-      setSaveError(msg)
+      setStatusMessage({ type: 'error', text: msg })
     } finally {
       setBgRemovalLoading(false)
     }
@@ -339,6 +353,45 @@ const AddPrenda = () => {
 
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#fafbad] to-[#ffffff] overflow-y-auto p-6 pb-12">
+      {statusMessage.text && (
+        <div className={`fixed bottom-6 right-6 z-50 px-6 py-3.5 rounded-2xl shadow-xl border text-sm font-bold flex items-center gap-2 bg-white transition-all ${
+          statusMessage.type === 'success' ? 'border-[#79d063] text-gray-900' : 'border-red-300 text-red-600'
+        }`}>
+          <div className={`w-2.5 h-2.5 rounded-full ${statusMessage.type === 'success' ? 'bg-[#79d063]' : 'bg-red-500'}`} />
+          {statusMessage.text}
+        </div>
+      )}
+
+      {confirmAction.show && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full mx-4">
+            <h3 className="text-xl font-bold text-gray-900 mb-2">
+              {confirmAction.type === 'eliminar' ? '¿Eliminar esta prenda?' : '¿Confirmar acción?'}
+            </h3>
+            <p className="text-gray-600 text-sm mb-6">
+              {confirmAction.type === 'eliminar'
+                ? 'Esta acción no se puede deshacer. La prenda se eliminará permanentemente de tu armario.'
+                : '¿Estás seguro de realizar esta acción?'}
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setConfirmAction({ show: false, type: '', action: null })}
+                className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold rounded-2xl transition-all"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={confirmAction.action}
+                className={`flex-1 px-4 py-2.5 text-white font-semibold rounded-2xl transition-all ${
+                  confirmAction.type === 'eliminar' ? 'bg-red-500 hover:bg-red-600' : 'bg-[#79d063] hover:bg-[#79d063]/90'
+                }`}
+              >
+                {confirmAction.type === 'eliminar' ? 'Eliminar' : 'Confirmar'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
       <div className="flex flex-col gap-2 mb-6 px-8">
   <div className="flex items-center gap-4">
     <button
