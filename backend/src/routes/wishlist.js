@@ -109,6 +109,37 @@ router.post('/', wishlistController.addToWishlist)
 
 /**
  * @swagger
+ * /api/wishlist/extraer-datos:
+ *   post:
+ *     summary: Extraer datos de un producto desde una tienda externa
+ *     tags: [Wishlist]
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required: [url_tienda]
+ *             properties:
+ *               url_tienda:
+ *                 type: string
+ *                 description: URL de la tienda donde se encuentra el item
+ *     responses:
+ *       200:
+ *         description: Datos del producto extraídos con éxito
+ *       400:
+ *         description: La URL del producto es requerida
+ *       422:
+ *         description: No se pudieron extraer datos estructurados de este enlace
+ *       500:
+ *         description: Error interno del servidor al escanear el enlace
+ */
+router.post('/extraer-datos', wishlistController.autocompletarPorUrl)
+
+/**
+ * @swagger
  * /api/wishlist/{id}:
  *   delete:
  *     summary: Eliminar un item de la lista de deseos por ID

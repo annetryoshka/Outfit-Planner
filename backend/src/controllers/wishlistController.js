@@ -98,6 +98,53 @@ const wishlistController = {
     }
   },
 
+  async autocompletarPorUrl(req, res) {
+    try {
+      const { url_tienda } = req.body;
+
+      if (!url_tienda) {
+        return res.status(400).json({ message: 'La URL del producto es requerida' });
+      }
+
+      console.log(`[Microlink] Escaneando enlace de tienda: ${url_tienda}`);
+
+      // Inyectamos selectores genéricos para forzar la búsqueda de precios
+      const microlinkUrl = `https://api.microlink.io/?url=${encodeURIComponent(url_tienda)}&data.price.selector=.price,[class*="price"],span:contains("$"),[itemprop="price"]`;
+      
+      const response = await fetch(microlinkUrl);
+      const result = await response.json();
+
+      if (result.status !== 'success') {
+        return res.status(422).json({ 
+          message: 'No se pudieron extraer datos estructurados de este enlace', 
+          error: result.error?.message 
+        });
+      }
+
+      const { data } = result;
+
+      // Mapeamos los datos limpios 
+      const datosExtraidos = {
+        nombre: data.title || '',
+        imagen_url: data.image?.url || data.logo?.url || '',
+        precio: parseFloat(data.price) || 0.00,
+        url_tienda: url_tienda
+      };
+
+      return res.status(200).json({
+        message: 'Datos del producto extraídos con éxito',
+        data: datosExtraidos
+      });
+
+    } catch (error) {
+      console.error('Error en autocompletarPorUrl:', error.message);
+      return res.status(500).json({
+        message: 'Error interno del servidor al escanear el enlace',
+        error: error.message
+      });
+    }
+  },
+
   async moverAlArmario(req, res) {
     try {
       const usuario_id = req.usuario.id

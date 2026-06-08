@@ -33,6 +33,11 @@ const wishlistService = {
     return res.data?.data ?? res.data
   },
 
+  async extraerDatosPorUrl(urlTienda) {
+    const res = await api.post('/wishlist/extraer-datos', { url_tienda: urlTienda })
+    return res.data?.data ?? res.data
+  },
+
   async eliminar(id) {
     await api.delete(`/wishlist/${id}`)
   },
