@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const User = require('../models/User')
-const { uploadToStorage } = require('../services/uploadService')
+const { uploadToStorage, deleteFromStorage } = require('../services/uploadService') // Asegúrate de importar deleteFromStorage si se usa abajo
 
 const authController = {
   async registro(req, res) {
@@ -66,12 +66,33 @@ const authController = {
 
   async actualizarPerfil(req, res) {
     try {
-      const { nombre, apellido, ciudad, bio, es_privado } = req.body
+      const { nombre, apellido, ciudad, bio, es_privado, passwordActual, nuevaPassword } = req.body
       let foto_perfil = req.body.foto_perfil;
 
-      if (req.file){
-        
-        const usuarioActual = await User.findById(req.usuario.id);
+      if (!usuarioActual) {
+        return res.status(404).json({ message: 'Usuario no encontrado' });
+      }
+
+      let passwordFinal = usuarioActual.password; 
+      if (nuevaPassword) {
+        if (!passwordActual) {
+          return res.status(400).json({ message: 'Debes proporcionar tu contraseña actual para realizar el cambio' });
+        }
+
+        const passwordValida = await bcrypt.compare(passwordActual, usuarioActual.password);
+        if (!passwordValida) {
+          return res.status(400).json({ message: 'La contraseña actual es incorrecta' });
+        }
+
+        if (nuevaPassword.length < 6) {
+          return res.status(400).json({ message: 'La nueva contraseña debe tener al menos 6 caracteres' });
+        }
+
+        const salt = await bcrypt.genSalt(10);
+        passwordFinal = await bcrypt.hash(nuevaPassword, salt);
+      }
+
+      if (req.file) {
         if (usuarioActual.foto_perfil) {
           await deleteFromStorage(usuarioActual.foto_perfil, 'iconprofile');
         }
@@ -91,15 +112,20 @@ const authController = {
           return res.status(500).json({ message: 'Error al subir la foto de perfil' });
         }
       }
-      const usuario = await User.update(req.usuario.id, {
+
+      const usuarioActualizado = await User.update(req.usuario.id, {
         nombre,
         apellido,
         foto_perfil,
         ciudad,
         bio,
-        es_privado
+        es_privado,
+        password: passwordFinal 
       })
-      res.json({ user: usuario })
+
+      const { password: _, ...dataSinPassword } = usuarioActualizado;
+      res.json({ user: dataSinPassword })
+
     } catch (error) {
       res.status(500).json({ message: 'Error al actualizar perfil', error: error.message })
     }
