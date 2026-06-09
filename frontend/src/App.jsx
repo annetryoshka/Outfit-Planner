@@ -44,7 +44,6 @@ function AppContent() {
           <Route path="/añadir-prenda" element={<AddPrenda />} />
           <Route path="/editar-prenda/:id" element={<ProtectedRoute><AddPrenda /></ProtectedRoute>} />
           <Route path="/perfil" element={<ProtectedRoute><Profile /></ProtectedRoute>} />
-          {/* NUEVO: ruta pública para ver el perfil de cualquier usuario */}
           <Route path="/perfil/:userId" element={<Profile />} />
           <Route path="/prenda/:id" element={<PrendaDetail />} />
           <Route path="/wishdetail/:id" element={<WishDetail />} />

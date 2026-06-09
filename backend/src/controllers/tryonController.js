@@ -77,7 +77,7 @@ const tryonController = {
             const garmentBuffer = Buffer.from(await responseGarment.arrayBuffer());
             const garmentMime = responseGarment.headers.get('content-type') || 'image/jpeg';
 
-            //Llamar al servicio pasándole los dos buffers con sus mimetypes reales y el tipo
+            //Llamar al servicio 
             const urlResultadoLightX = await tryOnOutfit(
                 personFile.buffer, 
                 personFile.mimetype, 
@@ -86,15 +86,15 @@ const tryonController = {
                 segmentationType
             );
 
-            //Descargar el JPEG final de los servidores de LightX
+            
             const responseFinal = await fetch(urlResultadoLightX);
             const bufferResultado = Buffer.from(await responseFinal.arrayBuffer());
             
-            //Subir el resultado final al bucket 
+            
             const nombreArchivo = `try_${req.usuario.id}_${Date.now()}`;
             const urlFinal = await uploadToStorage(bufferResultado, nombreArchivo, 'resultados_tryon', req.usuario.id, 'image/jpeg');
 
-            //Guardar el registro 
+            
             const pruebaGuardada = await TryOn.create({
                 user_id: req.usuario.id,
                 outfit_id: null, // Queda null por ser prenda individual

@@ -3,7 +3,7 @@ const Like = require('../models/Like')
 exports.darLike = async (req, res) => {
   try {
     const { prenda_id } = req.body
-    const user_id = req.usuario.id  // ← CAMBIO: req.usuario en lugar de req.user
+    const user_id = req.usuario.id  
     
     const like = await Like.darLike(user_id, prenda_id)
     res.json({ success: true, like })
@@ -16,7 +16,7 @@ exports.darLike = async (req, res) => {
 exports.quitarLike = async (req, res) => {
   try {
     const { prenda_id } = req.params
-    const user_id = req.usuario.id  // ← CAMBIO: req.usuario en lugar de req.user
+    const user_id = req.usuario.id  
     
     await Like.quitarLike(user_id, prenda_id)
     res.json({ success: true, message: 'Like eliminado' })
@@ -28,7 +28,7 @@ exports.quitarLike = async (req, res) => {
 
 exports.obtenerMisLikes = async (req, res) => {
   try {
-    const user_id = req.usuario.id  // ← CAMBIO: req.usuario en lugar de req.user
+    const user_id = req.usuario.id  
     const likes = await Like.obtenerPorUsuario(user_id)
     res.json(likes)
   } catch (error) {
@@ -40,7 +40,7 @@ exports.obtenerMisLikes = async (req, res) => {
 exports.verificarLike = async (req, res) => {
   try {
     const { prenda_id } = req.params
-    const user_id = req.usuario.id  // ← CAMBIO: req.usuario en lugar de req.user
+    const user_id = req.usuario.id 
     
     const tienelike = await Like.tienelike(user_id, prenda_id)
     res.json({ tienelike })

@@ -90,13 +90,12 @@ const prendaController = {
     }
   },
 
-  // Feed global: todas las prendas públicas de todos los usuarios (sin filtro de user_id)
- // Feed global: todas las prendas públicas de todos los usuarios mezcladas aleatoriamente ✨
+
   async obtenerPublicas(req, res) {
     try {
       const prendas = await Prenda.findAllPublicas()
       
-      // 🪄 Algoritmo de mezcla aleatoria (Shuffle)
+      //Algoritmo de mezcla aleatoria 
       const prendasMezcladas = prendas.sort(() => Math.random() - 0.5)
       
       res.json(prendasMezcladas)

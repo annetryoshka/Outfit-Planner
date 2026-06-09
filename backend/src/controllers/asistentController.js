@@ -43,7 +43,7 @@ ${contextoPrendas}
 
       console.log("[PinWand] Enviando respuesta al frontend...");
 
-      // Retornamos la respuesta limpia en la propiedad 'respuesta'
+
       return res.json({ respuesta: respuestaIA });
 
     } catch (error) {
