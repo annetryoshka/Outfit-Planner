@@ -321,7 +321,7 @@ const WishlistPage = () => {
         </div>
       )}
 
-      <header className="sticky top-0 z-30 bg-[#ffffff] shadow-sm px-8 py-4">
+      <header className="sticky top-0 z-30 bg-[#ffffff] shadow-sm px-8 py-2">
         <div className="flex items-center justify-between">
           <button
             onClick={() => navigate('/')}

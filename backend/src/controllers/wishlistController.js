@@ -114,6 +114,8 @@ const wishlistController = {
       const response = await fetch(microlinkUrl);
       const result = await response.json();
 
+      console.log(JSON.stringify(result, null, 2));
+
       if (result.status !== 'success') {
         return res.status(422).json({ 
           message: 'No se pudieron extraer datos estructurados de este enlace', 
@@ -122,6 +124,10 @@ const wishlistController = {
       }
 
       const { data } = result;
+
+      console.log('TITLE:', data.title);
+      console.log('IMAGE:', data.image);
+      console.log('PRICE:', data.price);
 
       // Mapeamos los datos limpios 
       const datosExtraidos = {
