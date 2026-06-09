@@ -1,52 +1,63 @@
 const fetch = require('node-fetch');
 
-const FAKE_STORE_URL = 'https://fakestoreapi.com';
-
-// Categorías de ropa disponibles en Fake Store API
-const CATEGORIAS_ROPA = ["women's clothing", "men's clothing"];
+const CHANNEL3_URL = 'https://api.trychannel3.com/v1';
+const CHANNEL3_API_KEY = process.env.CHANNEL3_API_KEY;
 
 const buscarProductos = async (keyword = '', categoria = '') => {
   try {
-    let productos = [];
-
+    let queryBusqueda = keyword.trim().toLowerCase();
+    
     if (categoria === 'mujer') {
-      // Solo ropa de mujer
-      const response = await fetch(`${FAKE_STORE_URL}/products/category/women's clothing`);
-      productos = await response.json();
-
+      queryBusqueda = queryBusqueda ? `${queryBusqueda} women` : 'women clothing';
     } else if (categoria === 'hombre') {
-      // Solo ropa de hombre
-      const response = await fetch(`${FAKE_STORE_URL}/products/category/men's clothing`);
-      productos = await response.json();
-
-    } else {
-      // Sin categoría → traer AMBAS categorías de ropa, no todos los productos
-      const [mujer, hombre] = await Promise.all([
-        fetch(`${FAKE_STORE_URL}/products/category/women's clothing`).then(r => r.json()),
-        fetch(`${FAKE_STORE_URL}/products/category/men's clothing`).then(r => r.json())
-      ]);
-      productos = [...mujer, ...hombre];
+      queryBusqueda = queryBusqueda ? `${queryBusqueda} men` : 'men clothing';
+    } else if (!queryBusqueda) {
+      queryBusqueda = 'clothes';
     }
 
-    // Filtrar por keyword si viene
-    const filtrados = keyword
-      ? productos.filter(item =>
-          item.title.toLowerCase().includes(keyword.toLowerCase()) ||
-          item.description.toLowerCase().includes(keyword.toLowerCase())
-        )
-      : productos;
+    console.log(`[Channel3] Buscando productos con keyword="${queryBusqueda}"`);
 
-    return filtrados.map(item => ({
-      product_id: item.id,
-      nombre: item.title,
-      imagen_url: item.image,
-      precio: item.price,
-      url_tienda: `${FAKE_STORE_URL}/products/${item.id}`,
-      rating: item.rating?.rate,
-      reviews: item.rating?.count,
-      categoria: item.category,
-      tienda: 'fakestore'
-    }));
+    const response = await fetch(`${CHANNEL3_URL}/search`, {
+      method: 'POST',
+      headers: {
+        'X-API-Key': CHANNEL3_API_KEY,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        query: queryBusqueda,
+        limit: 20
+      })
+    });
+
+    if (!response.ok) throw new Error(`Error en API de Channel3: ${response.status} ${response.statusText}`);
+
+    const result = await response.json();
+    console.log(`[Channel3] Resultados obtenidos: ${result.products.length} productos encontrados`);
+    const listaProductos = result.products || [];
+
+    return listaProductos.map(item => {
+      const primeraOferta = item.offers && item.offers[0] ? item.offers[0] : null;
+      let imagen = 'https://via.placeholder.com/400?text=Sin+Imagen';
+      if (item.images && item.images[0]) {
+        if (typeof item.images[0] === 'string') {
+          imagen = item.images[0];
+        } else if (item.images[0].url) {
+          imagen = item.images[0].url;
+        }
+      }
+      return {
+        product_id: item.id || Math.random().toString(),
+        nombre: item.title || 'Prenda de vestir',
+        imagen_url: imagen,
+        precio: primeraOferta?.price?.price ? parseFloat(primeraOferta.price.price) : 0.00,
+        
+        url_tienda: primeraOferta?.url || 'https://trychannel3.com',
+        rating: 4.5, 
+        reviews: 18,
+        categoria: categoria || item.category?.title || 'Ropa',
+        tienda: primeraOferta?.domain || 'Tienda Asociada'
+      };
+    });
 
   } catch (error) {
     console.error('Error en buscarProductos:', error.message);
