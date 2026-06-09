@@ -9,7 +9,7 @@ const outfitController = {
     console.log('📦 Content-Type:', req.headers['content-type'])
     const { nombre, ocasion, es_publico, fecha_calendario, canvas_data, prenda_ids, es_clon } = req.body
 
-    let imagen_url = req.body.imagen_url || null  // ← tomar imagen_url del body si viene
+    let imagen_url = req.body.imagen_url || null  
 
     if (req.file) {
       const nombreArchivo = `outfit_${req.usuario.id}_${Date.now()}`
@@ -108,11 +108,11 @@ const outfitController = {
         return res.status(404).json({ message: 'Outfit no encontrado' })
       }
 
-      let imagen_url = outfitActual.imagen_url // mantener la actual por defecto
+      let imagen_url = outfitActual.imagen_url 
 
-      // Si viene nueva imagen del lienzo
+      
       if (req.file) {
-        // Borrar imagen anterior del bucket
+        
         if (outfitActual.imagen_url) {
           await deleteFromStorage(outfitActual.imagen_url, 'outfits')
         }
@@ -147,7 +147,7 @@ const outfitController = {
         canvas_data: canvasDataParsed
       })
 
-      // Si vienen nuevas prendas, reemplazar todas de una vez
+      
       if (prenda_ids) {
         let ids = []
         try {
@@ -173,7 +173,7 @@ const outfitController = {
       const outfit = await Outfit.findById(req.params.id)
       if (!outfit) return res.status(404).json({ message: 'Outfit no encontrado' })
 
-      // Eliminar imagen del bucket si existe
+      // Eliminar imagen del bucket
       if (outfit.imagen_url) {
         await deleteFromStorage(outfit.imagen_url, 'outfits')
       }
