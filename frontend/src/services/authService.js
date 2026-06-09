@@ -8,6 +8,8 @@ const authService = {
         if (response.data.usuario) {
           localStorage.setItem('usuario', JSON.stringify(response.data.usuario));
         }
+        // Disparar evento personalizado para notificar cambios de autenticación
+        window.dispatchEvent(new CustomEvent('authChange', { detail: { type: 'login' } }));
       }
       return response.data;
     } catch (error) {
@@ -26,7 +28,9 @@ const authService = {
 
   logout: () => {
     localStorage.removeItem('token');
-    localStorage.removeItem('usuario'); 
+    localStorage.removeItem('usuario');
+    // Disparar evento personalizado para notificar cambios de autenticación
+    window.dispatchEvent(new CustomEvent('authChange', { detail: { type: 'logout' } }));
   },
 
   updateUser: async (userData) => {
@@ -34,7 +38,9 @@ const authService = {
       const response = await api.put('/auth/perfil', userData);
       const updatedUser = response.data.usuario || response.data.user;
       if (updatedUser) {
-        localStorage.setItem('usuario', JSON.stringify(updatedUser)); 
+        localStorage.setItem('usuario', JSON.stringify(updatedUser));
+        // Disparar evento personalizado para notificar cambios en el perfil
+        window.dispatchEvent(new CustomEvent('authChange', { detail: { type: 'update' } }));
       }
       return response.data;
     } catch (error) {

@@ -4,7 +4,7 @@ import authService from '../services/authService';
 import { supabase } from '../services/supabaseClient';
 import { 
   User, MapPin, Mail, Calendar, Lock, Globe, Camera, 
-  LogOut, Plus, Shirt, Grid, Search, Pencil, Check, X, Trash2
+  LogOut, Plus, Shirt, Grid, Search, Pencil, Check, X, Trash2, Lightbulb
 } from 'lucide-react';
 import prendaService from '../services/prendaService';
 import outfitService from '../services/outfitService';
@@ -475,8 +475,9 @@ const Profile = () => {
                       </p>
                     )}
                   </div>
-                  <p className="text-base text-gray-600 max-w-2xl font-medium leading-relaxed bg-slate-50/60 p-4 rounded-2xl border border-gray-100 mx-auto md:mx-0 text-left">
-                    {user.bio || '💡 Configurando combinaciones perfectas desde su armario.'}
+                  <p className="text-base text-gray-600 max-w-2xl font-medium leading-relaxed bg-slate-50/60 p-4 rounded-2xl border border-gray-100 mx-auto md:mx-0 text-left flex items-start gap-2">
+                    <Lightbulb className="w-5 h-5 text-morado flex-shrink-0 mt-0.5" />
+                    <span>{user.bio || 'Configurando combinaciones perfectas desde su armario.'}</span>
                   </p>
                   <div className="flex flex-wrap justify-center md:justify-start gap-2.5 pt-1 text-xs font-semibold text-gray-500">
                     <span className="flex items-center gap-1 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
@@ -649,7 +650,7 @@ const Profile = () => {
                         {o.imagen_url ? (
                           <img src={o.imagen_url} alt={o.nombre} className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500" />
                         ) : (
-                          <span className="text-3xl">👗</span>
+                          <Shirt className="w-12 h-12 text-gray-200" />
                         )}
                       </div>
                       <div className="p-3 border-t border-gray-50">
@@ -761,7 +762,7 @@ const Profile = () => {
                             className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
                           />
                         ) : (
-                          <span className="text-3xl">👗</span>
+                          <Shirt className="w-12 h-12 text-gray-200" />
                         )}
                       </div>
                       <div className="p-3 border-t border-gray-50">

@@ -1,10 +1,44 @@
-import React, { useState } from 'react'
+import React, { useState, useEffect } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import { Home, Compass, Calendar, User, ShoppingBag, Plus, BarChart2 } from 'lucide-react'
+import authService from '../../services/authService'
 
 const Sidebar = () => {
   const navigate = useNavigate()
   const location = useLocation()
+  const [currentUser, setCurrentUser] = useState(null)
+
+  // Detectar cambios en autenticación (login/logout)
+  useEffect(() => {
+    const checkAuth = () => {
+      const user = authService.getCurrentUser()
+      setCurrentUser(user)
+    }
+
+    // Verificar al montar
+    checkAuth()
+
+    // Escuchar eventos personalizados de autenticación
+    const handleAuthChange = () => {
+      checkAuth()
+    }
+
+    window.addEventListener('authChange', handleAuthChange)
+
+    // También escuchar cambios en localStorage (para otras pestañas)
+    const handleStorageChange = (e) => {
+      if (e.key === 'usuario' || e.key === 'token') {
+        checkAuth()
+      }
+    }
+
+    window.addEventListener('storage', handleStorageChange)
+
+    return () => {
+      window.removeEventListener('authChange', handleAuthChange)
+      window.removeEventListener('storage', handleStorageChange)
+    }
+  }, [])
 
   const activeItem = (() => {
     if (location.pathname === '/') return 'home'
@@ -102,11 +136,19 @@ const Sidebar = () => {
           onClick={() => {
             navigate('/perfil')
           }}
-          className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 ${
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center shadow-lg hover:shadow-xl transition-all duration-300 overflow-hidden ${
             activeItem === 'profile' ? 'bg-[#9f8aef]' : 'bg-[#9f8aef]/80 hover:bg-[#9f8aef]'
           }`}
         >
-          <User className="w-6 h-6 text-[#ffffff]" />
+          {currentUser?.foto_perfil ? (
+            <img 
+              src={currentUser.foto_perfil} 
+              alt="Perfil" 
+              className="w-full h-full object-cover"
+            />
+          ) : (
+            <User className="w-6 h-6 text-[#ffffff]" />
+          )}
         </button>
         
         {/* Tooltip */}
