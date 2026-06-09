@@ -17,6 +17,7 @@ const WishlistPage = () => {
   const [loadingWishlist, setLoadingWishlist] = useState(false)
   const [exploreProducts, setExploreProducts] = useState([])
   const [loadingExplore, setLoadingExplore] = useState(false)
+  const [loadingScan, setLoadingScan] = useState(false)
   const [wishlistSearch, setWishlistSearch] = useState('')
   const [exploreQ, setExploreQ] = useState('')
   const [exploreCat, setExploreCat] = useState('')
@@ -78,6 +79,18 @@ const WishlistPage = () => {
       setLoadingExplore(true)
       try {
         const data = await wishlistService.buscarProductos(exploreQ.trim(), exploreCat)
+        const productosValidos = Array.isArray(data) ? data : []
+
+        if (productosValidos.length > 0) {
+          console.log("================ CHANNEL3: PRIMER PRODUCTO DE LA LISTA ================");
+          console.log("Objeto completo mapeado:", productosValidos[0]);
+          console.log("Categoría asignada:", productosValidos[0].categoria);
+          console.log("Tienda de origen:", productosValidos[0].tienda);
+          console.log("=======================================================================");
+        } else {
+          console.log("⚠️ La búsqueda en Channel3 no devolvió productos para esta combinación.");
+        }
+
         setExploreProducts(Array.isArray(data) ? data : [])
       } catch {
         setExploreProducts([])
@@ -371,7 +384,7 @@ const WishlistPage = () => {
       <main className="p-8 bg-[linear-gradient(to_bottom,#f6ccfa_0%,#ffffff_40%,#ffffff_60%,#f6ccfa_100%)] bg-fixed min-h-screen">
         {!localStorage.getItem('token') && (
           <div className="mb-6 rounded-2xl border border-rosado/40 bg-white px-6 py-4 text-center text-gray-700">
-            Inicia sesión para ver tu wishlist y explorar productos desde el catálogo (Fake Store API).
+            Inicia sesión para ver tu wishlist y explorar productos desde el catálogo (Channel3 API).
           </div>
         )}
 
@@ -462,7 +475,7 @@ const WishlistPage = () => {
         {activeTab === 'explorar' && (
           <div>
             <div className="flex flex-wrap items-center gap-3 mb-6">
-              <span className="text-sm font-medium text-gray-700">Catálogo (Fake Store):</span>
+              <span className="text-sm font-medium text-gray-700">Catálogo (Channel3):</span>
               {exploreFilters.map((f) => (
                 <button
                   key={f.id || 'all'}
