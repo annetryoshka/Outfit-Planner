@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Calendar from 'react-calendar'
 import 'react-calendar/dist/Calendar.css'
 import dayjs from 'dayjs'
-import { Plus, Pencil, Trash2, Palette } from 'lucide-react'
+import { Plus, Pencil, Trash2, Palette, Shirt, Globe, Lock } from 'lucide-react'
 import outfitService from '../services/outfitService'
 
 export default function CalendarioPage() {
@@ -153,8 +153,8 @@ export default function CalendarioPage() {
         nombre: original.nombre,
         ocasion: original.ocasion,
         es_publico: original.es_publico,
-        imagen_url: original.imagen_url,       // ✅ ya estaba
-        canvas_data: original.canvas_data,     // ← agregar esto
+        imagen_url: original.imagen_url,       
+        canvas_data: original.canvas_data,     
         fecha_calendario: nuevaFecha,
         es_clon: true,
       })
@@ -248,7 +248,7 @@ export default function CalendarioPage() {
                                 className="w-8 h-8 object-cover rounded"
                               />
                             ) : (
-                              <span className="text-lg">👗</span>
+                              <Shirt size={20} className="text-gray-400" />
                             )}
                             <p className="text-xs text-gray-600 mt-1 truncate w-full text-center">
                               {outfitsDia[0].nombre}
@@ -272,7 +272,7 @@ export default function CalendarioPage() {
                               {outfit.imagen_url ? (
                                 <img src={outfit.imagen_url} alt={outfit.nombre} className="w-full h-full object-cover" />
                               ) : (
-                                <span className="text-xs">👗</span>
+                                <Shirt size={14} className="text-gray-400" />
                               )}
                             </div>
                             <div className="flex-1">
@@ -311,7 +311,7 @@ export default function CalendarioPage() {
         <div className="mb-6">
           {outfitsDia.length === 0 ? (
             <div className="bg-white rounded-2xl p-8 text-center text-gray-400 shadow-sm">
-              <p className="text-3xl mb-2"></p>
+              <Shirt size={48} className="text-gray-300 mx-auto mb-2" />
               <p className="text-sm">No hay outfits para este día</p>
               <p className="text-xs mt-1">¡Añade uno o crea uno en el lienzo!</p>
             </div>
@@ -323,14 +323,16 @@ export default function CalendarioPage() {
                   <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-[#f6ccfa] to-[#c2e1f9] flex items-center justify-center flex-shrink-0 overflow-hidden">
                     {o.imagen_url
                       ? <img src={o.imagen_url} alt={o.nombre} className="w-full h-full object-cover" />
-                      : <span className="text-2xl">👗</span>
+                      : <Shirt size={24} className="text-gray-400" />
                     }
                   </div>
 
                   <div className="flex-1">
                     <p className="font-medium text-gray-800">{o.nombre}</p>
                     {o.ocasion && <p className="text-xs text-gray-400 capitalize">{o.ocasion}</p>}
-                    <p className="text-xs text-gray-400">{o.es_publico ? '🌍 Público' : '🔒 Privado'}</p>
+                    <p className="text-xs text-gray-400 flex items-center gap-1">
+                      {o.es_publico ? <><Globe size={12} /> Público</> : <><Lock size={12} /> Privado</>}
+                    </p>
                   </div>
 
                   <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
@@ -382,7 +384,7 @@ export default function CalendarioPage() {
                 <div className="w-10 h-10 rounded-lg bg-gradient-to-br from-[#f6ccfa] to-[#c2e1f9] flex items-center justify-center flex-shrink-0 overflow-hidden">
                   {o.imagen_url
                     ? <img src={o.imagen_url} alt={o.nombre} className="w-full h-full object-cover" />
-                    : <span className="text-sm">👗</span>
+                    : <Shirt size={16} className="text-gray-400" />
                   }
                 </div>
                 <div className="flex-1">
