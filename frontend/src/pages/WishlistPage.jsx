@@ -144,7 +144,7 @@ const WishlistPage = () => {
         imagePreview: '',
         descripcion: '',
         categoria: '',
-        precio: '0.00'
+        precio: ''
       })
       await loadWishlist()
       setStatusMessage({ type: 'success', text: 'Producto añadido correctamente.' })
@@ -641,6 +641,28 @@ const WishlistPage = () => {
                   <option value="abrigos">Abrigos y blazers</option>
                   <option value="accesorios">Accesorios</option>
                 </select>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-gray-700 mb-2">Precio (Bs. / $)</label>
+                <div className="relative">
+                  <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 font-medium">
+                    $
+                  </span>
+                  <input
+                    type="number"
+                    name="precio"
+                    step="0.01"
+                    min="0"
+                    value={formData.precio}
+                    onChange={handleFormChange}
+                    className="w-full pl-8 pr-4 py-3 border-2 border-gray-100 focus:border-rosado focus:ring-0 outline-none transition-all text-gray-800 bg-white"
+                    placeholder="0.00"
+                  />
+                </div>
+                <p className="text-xs text-gray-400 mt-1">
+                  Si el enlace de la tienda tiene el precio visible, se rellenará automáticamente al salir del campo URL.
+                </p>
               </div>
 
               <button
