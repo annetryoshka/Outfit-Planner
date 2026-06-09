@@ -74,3 +74,14 @@ CREATE TABLE public.wishlist (
   CONSTRAINT wishlist_pkey PRIMARY KEY (id),
   CONSTRAINT wishlist_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.users(id)
 );
+
+-- Para el CRUD de prendas y filtros
+CREATE INDEX IF NOT EXISTS idx_prendas_usuario_tipo ON prendas(user_id, tipo);
+CREATE INDEX IF NOT EXISTS idx_prendas_usuario_temporada ON prendas(user_id, temporada);
+
+-- Para algoritmo de Outfit del Día y Calendario
+CREATE INDEX IF NOT EXISTS idx_outfits_usuario ON outfits(user_id);
+CREATE INDEX IF NOT EXISTS idx_outfits_fecha ON outfits(fecha);
+
+-- Para la Wishlist
+CREATE INDEX IF NOT EXISTS idx_wishlist_usuario ON wishlist(user_id);
