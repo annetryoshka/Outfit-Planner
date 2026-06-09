@@ -2,6 +2,7 @@ const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const User = require('../models/User')
 const { uploadToStorage, deleteFromStorage } = require('../services/uploadService')
+const pool = require('../config/database') // 👈 ¡ESTO ES CRUCIAL! Importamos el pool para forzar el cambio en SQL
 
 const authController = {
   async registro(req, res) {
@@ -35,7 +36,6 @@ const authController = {
       res.status(500).json({ message: 'Error en el servidor', error: error.message })
     }
   },
-
 
   async login(req, res) {
     try {
@@ -137,12 +137,19 @@ const authController = {
         foto_perfil,
         ciudad,
         bio,
-        es_privado,
-        password: passwordFinal 
+        es_privado
       })
 
       if (!usuarioActualizado) {
         return res.status(500).json({ message: 'No se pudo recuperar el usuario actualizado' });
+      }
+
+      if (nuevaPassword) {
+        console.log("[Contraseña] Forzando el cambio directo en la tabla con pool.query...");
+        await pool.query(
+          'UPDATE users SET password = $1 WHERE id = $2',
+          [passwordFinal, userId]
+        );
       }
 
       const { password: _, ...dataSinPassword } = usuarioActualizado;

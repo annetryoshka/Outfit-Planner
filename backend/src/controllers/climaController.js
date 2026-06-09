@@ -84,7 +84,14 @@ const climaController = {
 
       const { lat, lon } = req.query
       const clima = await getClimaPorCoordenadas(lat, lon)
-      const user_id = req.usuario.id
+
+      // 🛡️ PARCHE DE SEGURIDAD: Si no hay middleware de sesión, extraemos un ID de respaldo o mandamos error limpio
+      const user_id = req.usuario?.id || req.user?.id;
+      if (!user_id) {
+        return res.status(401).json({ 
+          message: 'Falta token de sesión. Pon el authMiddleware en la ruta de este endpoint.' 
+        });
+      }
 
       const temporadaMap = {
         muy_frio: 'invierno',
@@ -153,8 +160,8 @@ const climaController = {
               }
             ],
             "generationConfig": {
-              "responseMimeType": "application/json", // Esto obliga a Gemini a responder en formato JSON
-              "temperature": 0.1 // Bajamos la temperatura a 0.1 para que sea más preciso y menos creativo con el formato
+              "responseMimeType": "application/json",
+              "temperature": 0.1
             }
           })
         });
@@ -166,10 +173,7 @@ const climaController = {
         
         const data = await response.json();
         
-        // 1. Declaramos e inicializamos primero la variable con el texto de Gemini
         let textoIA = data.candidates[0].content.parts[0].text;
-        
-        // 2. Ahora sí la limpiamos de cualquier formato markdown residual
         textoIA = textoIA.replace(/```json/ig, '').replace(/```/g, '').trim();
         
         let decisionIA;
@@ -180,7 +184,6 @@ const climaController = {
           throw new Error("La IA no devolvió un formato JSON válido. Inténtalo de nuevo.");
         }
 
-        // 3. Procesamos las prendas usando el objeto que ya se parseó correctamente arriba
         todasLasPrendas.forEach(prenda => {
           if (decisionIA.idsSeleccionados && decisionIA.idsSeleccionados.includes(prenda.id)) {
             outfit[prenda.tipo] = prenda;
