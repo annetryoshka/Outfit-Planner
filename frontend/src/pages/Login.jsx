@@ -1,5 +1,6 @@
 import { useState } from 'react'
 import { useNavigate, Link } from 'react-router-dom'
+import { Eye, EyeOff } from 'lucide-react'
 import authService from '../services/authService'
 import logo6 from '../assets/logo6.png'
 
@@ -7,6 +8,7 @@ function Login() {
   const [form, setForm] = useState({ email: '', password: '' })
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const navigate = useNavigate()
 
   const handleChange = (e) => {
@@ -67,15 +69,28 @@ function Login() {
 
           <div>
             <label className="block text-sm font-medium text-morado mb-1">Contraseña</label>
-            <input
-              type="password"
-              name="password"
-              value={form.password}
-              onChange={handleChange}
-              placeholder=" "
-              className="w-full border border-rosado rounded-xl px-4 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-morado/50 bg-celeste/5"
-              required
-            />
+            <div className="relative">
+              <input
+                type={showPassword ? 'text' : 'password'}
+                name="password"
+                value={form.password}
+                onChange={handleChange}
+                placeholder=" "
+                className="w-full border border-rosado rounded-xl pl-4 pr-12 py-3 text-sm focus:outline-none focus:ring-2 focus:ring-morado/50 bg-celeste/5"
+                required
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute inset-y-0 right-0 pr-4 flex items-center text-gray-400 hover:text-morado transition-colors focus:outline-none select-none"
+              >
+                {showPassword ? (
+                  <EyeOff className="h-5 w-5" />
+                ) : (
+                  <Eye className="h-5 w-5" />
+                )}
+              </button>
+            </div>
           </div>
 
           <button
@@ -88,17 +103,17 @@ function Login() {
         </form>
 
         <div className="flex items-center gap-2 my-4">
-        <div className="flex-1 h-px bg-gray-200" />
-        <span className="text-xs text-gray-400">o</span>
-        <div className="flex-1 h-px bg-gray-200" />
-      </div>
-      <a
-        href="http://localhost:3000/api/auth/google"
-        className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all duration-300"
-      >
-        <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4" />
-        Continuar con Google
-      </a>
+          <div className="flex-1 h-px bg-gray-200" />
+          <span className="text-xs text-gray-400">o</span>
+          <div className="flex-1 h-px bg-gray-200" />
+        </div>
+        <a
+          href="http://localhost:3000/api/auth/google"
+          className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all duration-300"
+        >
+          <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4" />
+          Continuar con Google
+        </a>
 
         <p className="text-center text-sm text-gray-400 mt-6">
           ¿No tienes cuenta?{' '}
