@@ -7,6 +7,7 @@ import prendaService from '../services/prendaService'
 import authService from '../services/authService'
 import guardadoService from '../services/guardadoService'
 import likeService from '../services/likeService'
+import { supabase } from '../services/supabaseClient'
 
 const fmt = (s) => {
   if (s == null || s === '') return ''
@@ -24,6 +25,7 @@ const PrendaDetail = () => {
   const [prendasRelacionadas, setPrendasRelacionadas] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
+  const [autorFoto, setAutorFoto] = useState(null)
 
   const [guardado, setGuardado] = useState(false)
   const [guardando, setGuardando] = useState(false)
@@ -69,6 +71,18 @@ const PrendaDetail = () => {
         setLikesCount(p.likes_count || 0)
         const lista = Array.isArray(todas) ? todas : []
         setPrendasRelacionadas(lista.filter(x => String(x.id) !== String(id)).slice(0, 12))
+
+        // Cargar foto de perfil del autor desde Supabase
+        if (p.user_id) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('foto_perfil')
+            .eq('id', p.user_id)
+            .single()
+          if (userData && !cancelled) {
+            setAutorFoto(userData.foto_perfil)
+          }
+        }
       } catch (e) {
         if (cancelled) return
         if (e.response?.status === 401) setError('login')
@@ -319,25 +333,41 @@ const PrendaDetail = () => {
               <h1 className="text-3xl font-bold text-gray-900 mb-2">{prenda.nombre}</h1>
 
               {/*
-                NOMBRE DEL AUTOR - cliqueable
-                Si el link no funciona, abre la consola del navegador (F12) y busca
-                "Campos de prenda" para ver que campo tiene el user_id real.
-                Luego avisame y lo ajusto.
+                NOMBRE DEL AUTOR - cliqueable con foto de perfil
               */}
               {console.log('Campos de prenda (para debug):', Object.keys(prenda), '| user_id:', prenda.user_id, '| autor_id:', prenda.autor_id)}
-              <p className="text-sm text-gray-500 mb-4">
-                Subido por{' '}
-                {autorUserId ? (
+              <div className="flex items-center gap-3 mb-4">
+                {autorFoto ? (
                   <Link
-                    to={`/perfil/${autorUserId}`}
-                    className="font-semibold text-gray-700 hover:text-[#9f8aef] transition-colors underline-offset-2 hover:underline"
+                    to={autorUserId ? `/perfil/${autorUserId}` : '#'}
+                    className="flex-shrink-0"
                   >
-                    {nombreAutor}
+                    <img
+                      src={autorFoto}
+                      alt={nombreAutor}
+                      className="w-10 h-10 rounded-full object-cover border-2 border-[#f6ccfa] hover:border-[#9f8aef] transition-colors"
+                    />
                   </Link>
                 ) : (
-                  <span className="font-semibold text-gray-700">{nombreAutor}</span>
+                  <div className="w-10 h-10 rounded-full bg-[#f6ccfa] flex items-center justify-center border-2 border-[#f6ccfa] flex-shrink-0">
+                    <span className="text-[#9f8aef] font-bold text-sm">
+                      {nombreAutor.charAt(0).toUpperCase()}
+                    </span>
+                  </div>
                 )}
-              </p>
+                <p className="text-sm text-gray-500">
+                  {autorUserId ? (
+                    <Link
+                      to={`/perfil/${autorUserId}`}
+                      className="font-semibold text-gray-700 hover:text-[#9f8aef] transition-colors underline-offset-2 hover:underline"
+                    >
+                      {nombreAutor}
+                    </Link>
+                  ) : (
+                    <span className="font-semibold text-gray-700">{nombreAutor}</span>
+                  )}
+                </p>
+              </div>
 
               {isFromWishlist && (
                 <div className="mb-4">
