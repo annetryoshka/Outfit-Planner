@@ -6,6 +6,28 @@ import dayjs from 'dayjs'
 import { Plus, Pencil, Trash2, Palette, Shirt, Globe, Lock } from 'lucide-react'
 import outfitService from '../services/outfitService'
 
+const MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
+const DIAS_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
+
+const formatearMesAnio = (fecha) => {
+  const mes = MESES_ES[fecha.getMonth()]
+  const anio = fecha.getFullYear()
+  return `${mes} ${anio}`
+}
+
+const formatearDiaMes = (fecha) => {
+  const dia = fecha.getDate()
+  const mes = MESES_ES[fecha.getMonth()]
+  return `${dia} de ${mes}`
+}
+
+const formatearDiaCompleto = (fecha) => {
+  const diaSemana = DIAS_ES[fecha.getDay()]
+  const dia = fecha.getDate()
+  const mes = MESES_ES[fecha.getMonth()]
+  return `${diaSemana}, ${dia} de ${mes}`
+}
+
 export default function CalendarioPage() {
   const navigate = useNavigate()
   const [fecha, setFecha] = useState(new Date())
@@ -184,7 +206,7 @@ export default function CalendarioPage() {
               ‹
             </button>
             <span className="text-base font-semibold text-gray-800 capitalize">
-              {dayjs(fecha).format('MMMM YYYY')}
+              {formatearMesAnio(fecha)}
             </span>
             <button
               onClick={() => setFecha(prev => new Date(prev.getFullYear(), prev.getMonth() + 1, 1))}
@@ -263,7 +285,7 @@ export default function CalendarioPage() {
                   {hoveredDia === dia && dia && outfitsDelDia(dia).length > 0 && (
                     <div className="absolute bottom-full left-0 z-50 bg-white rounded-xl shadow-xl p-3 border border-gray-200 min-w-[180px] pointer-events-none mb-1">
                       <div className="text-xs font-medium text-gray-600 mb-2">
-                        {dayjs(fecha).date(dia).format('D [de] MMMM')}
+                        {formatearDiaMes(new Date(fecha.getFullYear(), fecha.getMonth(), dia))}
                       </div>
                       <div className="space-y-2">
                         {outfitsDelDia(dia).map(outfit => (
@@ -296,7 +318,7 @@ export default function CalendarioPage() {
         {/* Encabezado */}
         <div className="flex items-center justify-between mb-6">
           <h2 className="text-lg font-semibold text-gray-800">
-            {dayjs(fecha).format('dddd, D [de] MMMM')}
+            {formatearDiaCompleto(fecha)}
           </h2>
           <button
             type="button"
