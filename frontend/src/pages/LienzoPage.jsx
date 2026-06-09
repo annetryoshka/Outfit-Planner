@@ -329,6 +329,19 @@ export default function LienzoPage() {
                 </div>
               ))}
             </div>
+            <div className="px-4 pb-4 pt-3 border-t border-gray-100 bg-gradient-to-b from-gray-50 to-white">
+              <div className="flex items-start gap-2">
+                <div className="w-5 h-5 rounded-full bg-[#f6ccfa] flex items-center justify-center flex-shrink-0 mt-0.5">
+                  <span className="text-[10px] font-bold text-[#9f8aef]">?</span>
+                </div>
+                <div className="flex-1">
+                  <p className="text-[11px] font-semibold text-gray-700 mb-1">Cómo usar el lienzo</p>
+                  <p className="text-[10px] text-gray-500 leading-relaxed">
+                    Click derecho en imagen para eliminar • Arrastra para mover • Usa el panel de fondo para cambiar color
+                  </p>
+                </div>
+              </div>
+            </div>
           </div>
 
         </div>
