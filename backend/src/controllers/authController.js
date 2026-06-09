@@ -1,7 +1,7 @@
 const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const User = require('../models/User')
-const { uploadToStorage, deleteFromStorage } = require('../services/uploadService') // Asegúrate de importar deleteFromStorage si se usa abajo
+const { uploadToStorage, deleteFromStorage } = require('../services/uploadService')
 
 const authController = {
   async registro(req, res) {
@@ -36,10 +36,10 @@ const authController = {
     }
   },
 
+
   async login(req, res) {
     try {
       const { email, password } = req.body
-
       const usuario = await User.findByEmail(email)
       if (!usuario) {
         return res.status(400).json({ message: 'Credenciales incorrectas' })
@@ -69,14 +69,32 @@ const authController = {
       const { nombre, apellido, ciudad, bio, es_privado, passwordActual, nuevaPassword } = req.body
       let foto_perfil = req.body.foto_perfil;
 
+      const userId = req.usuario?.id || req.user?.id;
+      if (!userId) {
+        return res.status(401).json({ message: 'No autorizado, sesión inválida' });
+      }
+
+      let usuarioActual = await User.findById(userId);
       if (!usuarioActual) {
         return res.status(404).json({ message: 'Usuario no encontrado' });
       }
 
+      if (nuevaPassword && !usuarioActual.password && usuarioActual.email) {
+        const usuarioConPass = await User.findByEmail(usuarioActual.email);
+        if (usuarioConPass) {
+          usuarioActual.password = usuarioConPass.password;
+        }
+      }
+
       let passwordFinal = usuarioActual.password; 
+
       if (nuevaPassword) {
         if (!passwordActual) {
           return res.status(400).json({ message: 'Debes proporcionar tu contraseña actual para realizar el cambio' });
+        }
+
+        if (!usuarioActual.password) {
+          return res.status(500).json({ message: 'No se pudo recuperar la contraseña actual desde el servidor de datos.' });
         }
 
         const passwordValida = await bcrypt.compare(passwordActual, usuarioActual.password);
@@ -98,13 +116,13 @@ const authController = {
         }
 
         console.log("Subiendo foto de perfil...");
-        const filename = `perfil_${req.usuario.id}_${Date.now()}`;
+        const filename = `perfil_${userId}_${Date.now()}`;
         
         foto_perfil = await uploadToStorage(
           req.file.buffer,
           filename,
           'iconprofile',
-          req.usuario.id,
+          userId,
           req.file.mimetype  
         );
 
@@ -113,7 +131,7 @@ const authController = {
         }
       }
 
-      const usuarioActualizado = await User.update(req.usuario.id, {
+      const usuarioActualizado = await User.update(userId, {
         nombre,
         apellido,
         foto_perfil,
@@ -123,10 +141,15 @@ const authController = {
         password: passwordFinal 
       })
 
+      if (!usuarioActualizado) {
+        return res.status(500).json({ message: 'No se pudo recuperar el usuario actualizado' });
+      }
+
       const { password: _, ...dataSinPassword } = usuarioActualizado;
       res.json({ user: dataSinPassword })
 
     } catch (error) {
+      console.error("Error en actualizarPerfil:", error);
       res.status(500).json({ message: 'Error al actualizar perfil', error: error.message })
     }
   }

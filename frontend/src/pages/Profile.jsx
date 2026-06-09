@@ -253,22 +253,34 @@ const Profile = () => {
   };
 
   const handleSubmit = async (e) => {
-    e.preventDefault();
-    setLoading(true);
-    try {
+  e.preventDefault();
+  setLoading(true);
+  try {
+    let updatedUser;
+    if (formData.nuevaPassword && formData.nuevaPassword.trim() !== '') {
+      console.log("Detectado cambio de contraseña. Conectando con el Backend Express...");
+      const response = await authService.updateUser(formData); 
+      updatedUser = response.usuario || response.user || response;
+    } else {
       const result = await authService.updateUser(formData);
-      const updatedUser = result.usuario || result.user || result;
-      setUser(updatedUser);
-      setFormData(updatedUser);
-      localStorage.setItem('usuario', JSON.stringify(updatedUser));
-      setIsEditing(false);
-      setStatusMessage({ type: 'success', text: 'Perfil actualizado correctamente.' });
-    } catch (err) {
-      setStatusMessage({ type: 'error', text: 'No se pudieron consolidar los cambios del perfil.' });
-    } finally {
-      setLoading(false);
+      updatedUser = result.usuario || result.user || result;
     }
-  };
+
+    setUser(updatedUser);
+    setFormData(updatedUser);
+    localStorage.setItem('usuario', JSON.stringify(updatedUser));
+    setIsEditing(false);
+    setStatusMessage({ type: 'success', text: 'Perfil actualizado correctamente.' });
+  } catch (err) {
+    console.error("Error al conectar con la API:", err);
+    setStatusMessage({ 
+      type: 'error', 
+      text: err.response?.data?.message || 'No se pudieron consolidar los cambios.' 
+    });
+  } finally {
+    setLoading(false);
+  }
+};
 
   const categoriasDisponibles = ['Todas', ...new Set(prendas.map(p => p.categoria || 'Otros'))];
 
@@ -419,6 +431,30 @@ const Profile = () => {
                     <input type="checkbox" id="es_privado" name="es_privado" checked={formData.es_privado || false} onChange={handleChange} className="rounded text-morado focus:ring-0 w-4 h-4" />
                     <label htmlFor="es_privado" className="text-sm font-medium text-gray-500">Habilitar cuenta privada</label>
                   </div>
+
+                  {/* 🔒 Sección de contraseña — Agregada de forma ultra segura arriba de los botones */}
+                  <div className="pt-3 border-t border-gray-100 space-y-2">
+                    <p className="text-xs font-bold text-morado uppercase tracking-wider">
+                      Cambiar Contraseña (Opcional)
+                    </p>
+                    <input 
+                      type="password" 
+                      name="passwordActual" 
+                      placeholder="Contraseña actual" 
+                      value={formData.passwordActual || ''} 
+                      onChange={handleChange} 
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-morado bg-slate-50" 
+                    />
+                    <input 
+                      type="password" 
+                      name="nuevaPassword" 
+                      placeholder="Nueva contraseña (mínimo 6 caracteres)" 
+                      value={formData.nuevaPassword || ''} 
+                      onChange={handleChange} 
+                      className="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:border-morado bg-slate-50" 
+                    />
+                  </div>
+
                   <div className="flex items-center justify-center md:justify-start gap-2 pt-2">
                     <button type="submit" disabled={loading} className="px-5 py-2 bg-gray-900 text-white rounded-xl font-bold text-sm hover:bg-gray-800 transition-colors shadow-sm inline-flex items-center gap-1.5">
                       <Check className="w-4 h-4" /> {loading ? 'Guardando...' : 'Confirmar'}

@@ -13,20 +13,25 @@ const prendaRoutes = require('./src/routes/prenda')
 const wishlistRoutes = require('./src/routes/wishlist')
 const tryonRoutes = require('./src/routes/tryon')
 const guardadoRoutes = require('./src/routes/guardado')
-const likeRoutes = require('./src/routes/like')  // ← NUEVA LÍNEA
+const likeRoutes = require('./src/routes/like')  
 const { specs, swaggerUi } = require('./src/config/swagger')
 const passport = require('passport')
 
 const app = express()
 const PORT = process.env.PORT || 3000
 
-// Middlewares
-app.use(cors())
+app.use(cors({
+  origin: [
+    'http://localhost:5173',                  
+    'https://outfit-planner-1-fu4w.onrender.com'
+  ],
+  credentials: true
+}));
+
 app.use(express.json())
 require('./src/config/passport')
 app.use(passport.initialize())
 
-// Rutas
 app.use('/api/auth', authRoutes)
 app.use('/api/prendas', prendaRoutes)
 app.use('/api/outfits', outfitRoutes)
@@ -35,20 +40,17 @@ app.use('/api/asistente', asistenteRoutes)
 app.use('/api/wishlist', wishlistRoutes)
 app.use('/api/tryon', tryonRoutes)
 app.use('/api/guardados', guardadoRoutes)
-app.use('/api/likes', likeRoutes)  // ← NUEVA LÍNEA
+app.use('/api/likes', likeRoutes)  
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs))
 
-// Ruta raíz
 app.get('/', (req, res) => {
   res.json({ message: 'Outfit Planner API funcionando uwuwewe' })
 })
 
-// Ruta protegida de prueba
 app.get('/api/perfil', authMiddleware, (req, res) => {
   res.json({ message: 'Ruta protegida', usuario: req.usuario })
 })
 
-// Manejador de errores global
 app.use((err, req, res, next) => {
   console.error("Error detectado en el servidor:", err.stack);
   res.status(500).json({
@@ -58,8 +60,7 @@ app.use((err, req, res, next) => {
   });
 });
 
+
 app.listen(PORT, () => {
   console.log(`Servidor corriendo en http://localhost:${PORT}`)
 })
-
-module.exports = app
