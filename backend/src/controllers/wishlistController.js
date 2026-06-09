@@ -105,41 +105,72 @@ const wishlistController = {
       if (!url_tienda) {
         return res.status(400).json({ message: 'La URL del producto es requerida' });
       }
+      const SCRAPING_BEE_API_KEY = process.env.SCRAPING_BEE_API_KEY;
+      console.log(`[ScrapinBee] Escaneando enlace de tienda: ${url_tienda}`);
 
-      console.log(`[Microlink] Escaneando enlace de tienda: ${url_tienda}`);
+      const params = new URLSearchParams({
+        'api_key': SCRAPING_BEE_API_KEY,
+        'url': url_tienda,
+        'render_js': 'true'
+      });
 
-      // Inyectamos selectores genéricos para forzar la búsqueda de precios
-      const microlinkUrl = `https://api.microlink.io/?url=${encodeURIComponent(url_tienda)}&data.price.selector=.price,[class*="price"],span:contains("$"),[itemprop="price"]`;
+      const response = await fetch(`https://app.scrapingbee.com/api/v1?${params.toString()}`);
       
-      const response = await fetch(microlinkUrl);
-      const result = await response.json();
-
-      console.log(JSON.stringify(result, null, 2));
-
-      if (result.status !== 'success') {
-        return res.status(422).json({ 
-          message: 'No se pudieron extraer datos estructurados de este enlace', 
-          error: result.error?.message 
-        });
+      if (!response.ok) {
+        throw new Error(`ScrapingBee respondió con error: ${response.status} ${response.statusText}`);
       }
 
-      const { data } = result;
+      const html = await response.text();
+      console.log("[ScrapingBee - Blindado] ¡HTML recibido con éxito! Extrayendo metadatos...");
 
-      console.log('TITLE:', data.title);
-      console.log('IMAGE:', data.image);
-      console.log('PRICE:', data.price);
+      let titulo = 'Producto Encontrado';
+      const titleRegex = /<meta[^>]*property=["']og:title["'][^>]*content=["']([^"']+)["']/i;
+      const titleMatch = html.match(titleRegex);
+      if (titleMatch && titleMatch[1]) {
+        titulo = titleMatch[1];
+      } else {
+        const tagTitleMatch = html.match(/<title[^>]*>([^<]+)<\/title>/i);
+        if (tagTitleMatch && tagTitleMatch[1]) titulo = tagTitleMatch[1];
+      }
 
-      // Mapeamos los datos limpios 
-      const datosExtraidos = {
-        nombre: data.title || '',
-        imagen_url: data.image?.url || data.logo?.url || '',
-        precio: parseFloat(data.price) || 0.00,
+      let imagen = '';
+      const imageRegex = /<meta[^>]*property=["']og:image["'][^>]*content=["']([^"']+)["']/i;
+      const imageMatch = html.match(imageRegex);
+      if (imageMatch && imageMatch[1]) {
+        imagen = imageMatch[1];
+      } else {
+        const twitterImgRegex = /<meta[^>]*name=["']twitter:image["'][^>]*content=["']([^"']+)["']/i;
+        const twitterImgMatch = html.match(twitterImgRegex);
+        if (twitterImgMatch && twitterImgMatch[1]) imagen = twitterImgMatch[1];
+      }
+
+      let precioLimpio = 0.00;
+      const priceRegex = /<meta[^>]*property=["'](?:product:price:amount|og:price:amount)["'][^>]*content=["']([^"']+)["']/i;
+      const priceMatch = html.match(priceRegex);
+      if (priceMatch && priceMatch[1]) {
+        precioLimpio = parseFloat(priceMatch[1]) || 0.00;
+      } else {
+        const schemaPriceMatch = html.match(/"price"\s*:\s*["']?([^"',\s}]+)["']?/i);
+        if (schemaPriceMatch && schemaPriceMatch[1]) {
+          precioLimpio = parseFloat(schemaPriceMatch[1].replace(/[^0-9.]/g, '')) || 0.00;
+        }
+      }
+      if (!imagen || imagen.trim() === "" || imagen.includes('[object')) {
+        imagen = 'https://via.placeholder.com/400?text=Introduce+Imagen+Manual';
+      }
+
+      const datosMapeados = {
+        nombre: String(titulo).replace(/&quot;/g, '"').trim(),
+        imagen_url: String(imagen).trim(),
+        precio: precioLimpio,
         url_tienda: url_tienda
       };
 
+      console.log("[ScrapingBee - Blindado] Enviando respuesta pulida al frontend:", datosMapeados);
+
       return res.status(200).json({
-        message: 'Datos del producto extraídos con éxito',
-        data: datosExtraidos
+        message: 'Autocompletado exitoso vía ScrapingBee HTML Parser',
+        data: datosMapeados
       });
 
     } catch (error) {
