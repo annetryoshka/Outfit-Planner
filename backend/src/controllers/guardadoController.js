@@ -1,5 +1,5 @@
 const Guardado = require('../models/Guardado')
-const Prenda = require('../models/prenda')
+const Prenda = require('../models/Prenda')
 
 const guardadoController = {
   async guardar(req, res) {

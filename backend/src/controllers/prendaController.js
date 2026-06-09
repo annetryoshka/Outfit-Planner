@@ -1,4 +1,4 @@
-const Prenda = require('../models/prenda');
+const Prenda = require('../models/Prenda');
 const { removeBG } = require('../services/removeBGservice')
 const { uploadToStorage, deleteFromStorage } = require('../services/uploadService')
 
