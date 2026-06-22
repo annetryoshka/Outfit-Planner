@@ -6,6 +6,7 @@ import dayjs from 'dayjs'
 import { Plus, Pencil, Trash2, Palette, Shirt, Globe, Lock } from 'lucide-react'
 import outfitService from '../services/outfitService'
 
+
 const MESES_ES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 const DIAS_ES = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado']
 

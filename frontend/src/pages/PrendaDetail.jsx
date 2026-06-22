@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react'
 import { useNavigate, useLocation, useParams, Link } from 'react-router-dom'
-import { Search, Heart, Link as LinkIcon, Download, Check } from 'lucide-react'
+import { Search, Heart, Link as LinkIcon, Download, Check, ArrowLeft } from 'lucide-react'
 import Masonry from 'react-masonry-css'
 import logo6 from '../assets/logo6.png'
 import prendaService from '../services/prendaService'
@@ -244,7 +244,7 @@ const PrendaDetail = () => {
   const autorUserId = prenda.user_id || prenda.autor_id || prenda.userId || null
 
   return (
-    <div className="min-h-screen bg-gradient-to-b from-[#fafbad] from-5% via-white via-50% to-[#fafbad] to-95% bg-fixed">
+    <div className="relative min-h-screen bg-gradient-to-b from-[#fafbad] from-5% via-white via-50% to-[#fafbad] to-95% bg-fixed">
       {statusMessage.text && (
         <div className={`fixed bottom-6 right-6 z-50 px-6 py-3.5 rounded-2xl shadow-xl border text-sm font-bold flex items-center gap-2 bg-white transition-all ${
           statusMessage.type === 'success' ? 'border-[#79d063] text-gray-900' : 'border-red-300 text-red-600'
@@ -254,9 +254,12 @@ const PrendaDetail = () => {
         </div>
       )}
 
-      {/* Navbar */}
-      <div className="fixed top-0 left-0 w-full z-50 py-4 bg-white/80 backdrop-blur-sm shadow-sm">
-        <div className="max-w-[1400px] mx-auto px-4 flex items-center">
+      {/* Navbar — misma altura fija (72px) que HomePage y WishlistPage */}
+      <div
+        className="fixed top-0 left-0 w-full z-50 bg-white/80 backdrop-blur-sm shadow-sm"
+        style={{ height: '72px' }}
+      >
+        <div className="max-w-[1400px] mx-auto px-4 h-full flex items-center">
           <button onClick={() => navigate('/')} className="h-10 w-auto cursor-pointer ml-8 mr-6 hover:opacity-90 transition-all">
             <img src={logo6} alt="PinWand" className="h-full w-auto object-contain" />
           </button>
@@ -270,6 +273,15 @@ const PrendaDetail = () => {
           </div>
         </div>
       </div>
+
+      {/* ── Botón Volver Atrás — flotante, al lado del panel izquierdo ── */}
+      <button
+        onClick={() => navigate(-1)}
+        className="absolute top-24 left-6 z-30 w-11 h-11 bg-white border border-gray-200 rounded-xl shadow-sm flex items-center justify-center hover:bg-gray-50 transition-colors"
+        title="Volver atrás"
+      >
+        <ArrowLeft className="w-5 h-5 text-gray-800" />
+      </button>
 
       {/* Contenedor Principal */}
       <div className="max-w-[1260px] mx-auto px-4 pt-24 pb-10 grid grid-cols-4 gap-6">

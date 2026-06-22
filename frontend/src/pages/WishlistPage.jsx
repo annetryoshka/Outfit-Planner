@@ -334,8 +334,11 @@ const WishlistPage = () => {
         </div>
       )}
 
-      <header className="sticky top-0 z-30 bg-[#ffffff] shadow-sm px-8 py-2">
-        <div className="flex items-center justify-between">
+      <header
+  className="sticky top-0 z-30 bg-[#ffffff] shadow-sm px-8"
+  style={{ height: '72px' }}
+>
+  <div className="flex items-center justify-between h-full">
           <button
             onClick={() => navigate('/')}
             className="h-10 w-auto cursor-pointer mr-6 hover:opacity-90 transition-all"
