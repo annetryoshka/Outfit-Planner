@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import Calendar from 'react-calendar'
 import 'react-calendar/dist/Calendar.css'
 import dayjs from 'dayjs'
-import { Plus, Pencil, Trash2, Palette, Shirt, Globe, Lock } from 'lucide-react'
+import { Plus, Pencil, Trash2, Palette, Shirt, Globe, Lock, CalendarDays } from 'lucide-react'
 import outfitService from '../services/outfitService'
 
 
@@ -40,6 +40,7 @@ export default function CalendarioPage() {
   const [form, setForm] = useState({ nombre: '', ocasion: '', es_publico: false })
   const [hoveredDia, setHoveredDia] = useState(null)
   const [dragOverDia, setDragOverDia] = useState(null)
+  const [confirmAction, setConfirmAction] = useState({ show: false, type: '', action: null })
 
   // Cargar todos los outfits al montar
   useEffect(() => {
@@ -100,13 +101,70 @@ export default function CalendarioPage() {
   }
 
   const eliminar = async (id) => {
-    if (!confirm('¿Seguro que quieres eliminar este outfit del calendario? Esta acción no se puede deshacer.')) return
-    try {
-      await outfitService.eliminar(id)
-      setOutfits(prev => prev.filter(o => o.id !== id))
-    } catch (err) {
-      const msg = err?.response?.data?.message || err?.message || 'Error desconocido'
-      alert('No se pudo eliminar el outfit: ' + msg)
+    const outfit = outfits.find(o => String(o.id) === String(id))
+    if (!outfit) return
+
+    if (outfit.es_clon) {
+      setConfirmAction({
+        show: true,
+        type: 'clon',
+        action: async () => {
+          try {
+            await outfitService.eliminar(id)
+            setOutfits(prev => prev.filter(o => o.id !== id))
+          } catch (err) {
+            alert('No se pudo quitar el outfit: ' + (err?.response?.data?.message || err?.message))
+          } finally {
+            setConfirmAction({ show: false, type: '', action: null })
+          }
+        }
+      })
+      return
+    }
+
+    // Original: verificar si tiene clones
+    const clonesDelOriginal = outfits.filter(o => o.es_clon && o.nombre === outfit.nombre)
+
+    if (clonesDelOriginal.length > 0) {
+      setConfirmAction({
+        show: true,
+        type: 'original-con-clones',
+        cloneCount: clonesDelOriginal.length,
+        action: async (eliminarTodo) => {
+          try {
+            if (eliminarTodo) {
+              await outfitService.eliminar(id)
+              for (const clon of clonesDelOriginal) {
+                await outfitService.eliminar(clon.id)
+              }
+              const idsAEliminar = new Set([String(id), ...clonesDelOriginal.map(c => String(c.id))])
+              setOutfits(prev => prev.filter(o => !idsAEliminar.has(String(o.id))))
+            } else {
+              await outfitService.eliminar(id)
+              setOutfits(prev => prev.filter(o => String(o.id) !== String(id)))
+            }
+          } catch (err) {
+            alert('No se pudo eliminar: ' + (err?.response?.data?.message || err?.message))
+          } finally {
+            setConfirmAction({ show: false, type: '', action: null })
+          }
+        }
+      })
+    } else {
+      setConfirmAction({
+        show: true,
+        type: 'original',
+        action: async () => {
+          try {
+            await outfitService.eliminar(id)
+            setOutfits(prev => prev.filter(o => o.id !== id))
+          } catch (err) {
+            alert('No se pudo eliminar: ' + (err?.response?.data?.message || err?.message))
+          } finally {
+            setConfirmAction({ show: false, type: '', action: null })
+          }
+        }
+      })
     }
   }
 
@@ -192,9 +250,12 @@ export default function CalendarioPage() {
     <div className="flex flex-row h-screen overflow-hidden">
       {/* Hijo izquierdo — Calendario grande (70%) */}
       <div className="w-[70%] flex flex-col h-full p-6 overflow-hidden">
-        <h1 className="text-2xl font-subtitulo text-gray-800 mb-6">
-          Mi Calendario
-        </h1>
+        <div className="flex items-center gap-2 mb-6">
+  <CalendarDays size={16} className="text-[#9f8aef]" />
+  <h1 className="text-xl font-semibold text-gray-700 uppercase tracking-widest">
+    Mi Calendario
+  </h1>
+</div>
         
         {/* Grilla de calendario personalizado */}
         <div className="flex-1 bg-white rounded-2xl shadow-sm p-4 overflow-auto">
@@ -341,51 +402,70 @@ export default function CalendarioPage() {
           ) : (
             <div className="flex flex-col gap-3">
               {outfitsDia.map(o => (
-                <div key={o.id} className="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-4 group">
-                  {/* Imagen o placeholder */}
-                  <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-[#f6ccfa] to-[#c2e1f9] flex items-center justify-center flex-shrink-0 overflow-hidden">
-                    {o.imagen_url
-                      ? <img src={o.imagen_url} alt={o.nombre} className="w-full h-full object-cover" />
-                      : <Shirt size={24} className="text-gray-400" />
-                    }
-                  </div>
+  <div key={o.id} className="bg-white rounded-2xl p-4 shadow-sm flex items-center gap-4 group">
+    
+    {/* Imagen */}
+    <div className="w-16 h-16 rounded-xl bg-gradient-to-br from-[#f6ccfa] to-[#c2e1f9] flex items-center justify-center flex-shrink-0 overflow-hidden relative">
+      {o.imagen_url
+        ? <img src={o.imagen_url} alt={o.nombre} className="w-full h-full object-cover" />
+        : <Shirt size={24} className="text-gray-400" />
+      }
+      {/* Badge clon */}
+      {o.es_clon && (
+        <div className="absolute -top-1 -right-1 bg-[#9f8aef] text-white text-[8px] font-bold px-1 py-0.5 rounded-full">
+          clon
+        </div>
+      )}
+    </div>
 
-                  <div className="flex-1">
-                    <p className="font-medium text-gray-800">{o.nombre}</p>
-                    {o.ocasion && <p className="text-xs text-gray-400 capitalize">{o.ocasion}</p>}
-                    <p className="text-xs text-gray-400 flex items-center gap-1">
-                      {o.es_publico ? <><Globe size={12} /> Público</> : <><Lock size={12} /> Privado</>}
-                    </p>
-                  </div>
+    <div className="flex-1">
+      <div className="flex items-center gap-2">
+        <p className="font-medium text-gray-800">{o.nombre}</p>
+        {o.es_clon && (
+          <span className="text-[9px] font-bold text-[#9f8aef] bg-[#f6ccfa]/50 px-1.5 py-0.5 rounded-full">
+            CLON
+          </span>
+        )}
+      </div>
+      {o.ocasion && <p className="text-xs text-gray-400 capitalize">{o.ocasion}</p>}
+      <p className="text-xs text-gray-400 flex items-center gap-1">
+        {o.es_publico ? <><Globe size={12} /> Público</> : <><Lock size={12} /> Privado</>}
+      </p>
+    </div>
 
-                  <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); navigate(`/lienzo/${o.id}`) }}
-                      className="w-8 h-8 bg-[#f6ccfa] rounded-full flex items-center justify-center hover:bg-[#9f8aef] hover:text-white transition-colors"
-                      title="Editar en lienzo"
-                    >
-                      <Palette size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); abrirEditar(o) }}
-                      className="w-8 h-8 bg-[#f6ccfa] rounded-full flex items-center justify-center hover:bg-[#9f8aef] hover:text-white transition-colors"
-                      title="Editar"
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      type="button"
-                      onClick={(e) => { e.stopPropagation(); eliminar(o.id) }}
-                      className="w-8 h-8 bg-[#f6ccfa] rounded-full flex items-center justify-center hover:bg-red-400 hover:text-white transition-colors"
-                      title="Eliminar outfit"
-                    >
-                      <Trash2 size={14} />
-                    </button>
-                  </div>
-                </div>
-              ))}
+    <div className="flex gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+      {/* Botón lienzo — SOLO para originales */}
+      {!o.es_clon && (
+        <button
+          type="button"
+          onClick={(e) => { e.stopPropagation(); navigate(`/lienzo/${o.id}`) }}
+          className="w-8 h-8 bg-[#f6ccfa] rounded-full flex items-center justify-center hover:bg-[#9f8aef] hover:text-white transition-colors"
+          title="Editar en lienzo"
+        >
+          <Palette size={14} />
+        </button>
+      )}
+      {/* Editar metadatos — para todos */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); abrirEditar(o) }}
+        className="w-8 h-8 bg-[#f6ccfa] rounded-full flex items-center justify-center hover:bg-[#9f8aef] hover:text-white transition-colors"
+        title={o.es_clon ? "Editar nombre/ocasión" : "Editar"}
+      >
+        <Pencil size={14} />
+      </button>
+      {/* Eliminar — para todos */}
+      <button
+        type="button"
+        onClick={(e) => { e.stopPropagation(); eliminar(o.id) }}
+        className="w-8 h-8 bg-[#f6ccfa] rounded-full flex items-center justify-center hover:bg-red-400 hover:text-white transition-colors"
+        title={o.es_clon ? "Quitar del día" : "Eliminar outfit"}
+      >
+        <Trash2 size={14} />
+      </button>
+    </div>
+  </div>
+))}
             </div>
           )}
         </div>
@@ -473,6 +553,93 @@ export default function CalendarioPage() {
                 Guardar
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de confirmación bonito (reemplaza window.confirm) */}
+      {confirmAction.show && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm">
+          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full mx-4">
+
+            {/* Caso: eliminar clon */}
+            {confirmAction.type === 'clon' && (
+              <>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">¿Quitar outfit de este día?</h3>
+                <p className="text-gray-600 text-sm mb-6">
+                  Este outfit asignado a este día se eliminará, pero el outfit original seguirá disponible.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setConfirmAction({ show: false, type: '', action: null })}
+                    className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold rounded-2xl transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={confirmAction.action}
+                    className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-2xl transition-all"
+                  >
+                    Quitar
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Caso: eliminar original sin clones */}
+            {confirmAction.type === 'original' && (
+              <>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">¿Eliminar este outfit?</h3>
+                <p className="text-gray-600 text-sm mb-6">
+                  Esta acción no se puede deshacer. El outfit se eliminará permanentemente.
+                </p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setConfirmAction({ show: false, type: '', action: null })}
+                    className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold rounded-2xl transition-all"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={confirmAction.action}
+                    className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-2xl transition-all"
+                  >
+                    Eliminar
+                  </button>
+                </div>
+              </>
+            )}
+
+            {/* Caso: original con clones — 3 opciones */}
+            {confirmAction.type === 'original-con-clones' && (
+              <>
+                <h3 className="text-xl font-bold text-gray-900 mb-2">¿Eliminar este outfit?</h3>
+                <p className="text-gray-600 text-sm mb-6">
+                  Este outfit está asignado a <span className="font-bold text-[#9f8aef]">{confirmAction.cloneCount} día(s)</span> más como clon. ¿Qué quieres hacer?
+                </p>
+                <div className="flex flex-col gap-2">
+                  <button
+                    onClick={() => confirmAction.action(false)}
+                    className="w-full px-4 py-2.5 bg-[#9f8aef] hover:bg-[#9f8aef]/80 text-white font-semibold rounded-2xl transition-all text-sm"
+                  >
+                    Solo eliminar el original
+                  </button>
+                  <button
+                    onClick={() => confirmAction.action(true)}
+                    className="w-full px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-2xl transition-all text-sm"
+                  >
+                    Eliminar original + {confirmAction.cloneCount} clon(es)
+                  </button>
+                  <button
+                    onClick={() => setConfirmAction({ show: false, type: '', action: null })}
+                    className="w-full px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold rounded-2xl transition-all text-sm"
+                  >
+                    Cancelar
+                  </button>
+                </div>
+              </>
+            )}
+
           </div>
         </div>
       )}
