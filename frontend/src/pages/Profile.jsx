@@ -4,12 +4,14 @@ import authService from '../services/authService';
 import { supabase } from '../services/supabaseClient';
 import { 
   User, MapPin, Mail, Calendar, Lock, Globe, Camera, 
-  LogOut, Plus, Shirt, Grid, Search, Pencil, Check, X, Trash2, Lightbulb
+  LogOut, Plus, Shirt, Grid, Search, Pencil, Check, X, Trash2, Lightbulb, Users, Heart
 } from 'lucide-react';
 import prendaService from '../services/prendaService';
 import outfitService from '../services/outfitService';
 import guardadoService from '../services/guardadoService';
 import tryonService from '../services/tryonService';
+import followerService from '../services/followerService';
+import notificationService from '../services/notificationService';
 
 const Profile = () => {
   const [user, setUser] = useState(null);
@@ -33,9 +35,46 @@ const Profile = () => {
   const [selectedCategory, setSelectedCategory] = useState('Todas');
   const [selectedColor, setSelectedColor] = useState('Todos');
 
+  // Estados para seguidores
+  const [followersCount, setFollowersCount] = useState(0);
+  const [followingCount, setFollowingCount] = useState(0);
+  const [isFollowing, setIsFollowing] = useState(false);
+  const [followingLoading, setFollowingLoading] = useState(false);
+  
+  // Estados para modales de seguidores
+  const [showFollowersModal, setShowFollowersModal] = useState(false);
+  const [showFollowingModal, setShowFollowingModal] = useState(false);
+  const [followersList, setFollowersList] = useState([]);
+  const [followingList, setFollowingList] = useState([]);
+  const [loadingFollowers, setLoadingFollowers] = useState(false);
+  const [loadingFollowing, setLoadingFollowing] = useState(false);
+
+  // Estados para panel lateral (solo cuando isOwner === true)
+  const [sidePanelTab, setSidePanelTab] = useState('explorar'); // 'explorar' | 'notificaciones'
+  const [searchQuery, setSearchQuery] = useState('');
+  const [popularUsers, setPopularUsers] = useState([]);
+  const [searchResults, setSearchResults] = useState([]);
+  const [notifications, setNotifications] = useState([]);
+  const [unreadCount, setUnreadCount] = useState(0);
+  const [loadingPopular, setLoadingPopular] = useState(false);
+  const [loadingSearch, setLoadingSearch] = useState(false);
+  const [loadingNotifications, setLoadingNotifications] = useState(false);
+
   const fileInputRef = useRef(null);
   const backgroundInputRef = useRef(null);
   const navigate = useNavigate();
+
+  // Refs/estado para el header sticky estilo Twitter (frosted glass)
+  const scrollContainerRef = useRef(null);
+  const [scrollProgress, setScrollProgress] = useState(0);
+
+  const handleScroll = () => {
+    const el = scrollContainerRef.current;
+    if (!el) return;
+    const threshold = 130; // px de scroll para completar la transición
+    const progress = Math.min(el.scrollTop / threshold, 1);
+    setScrollProgress(progress);
+  };
 
   // ✅ NUEVO: detectar si estamos en /perfil/:userId
   const { userId } = useParams();
@@ -87,6 +126,72 @@ const Profile = () => {
       loadVisitedProfile();
     }
   }, [userId, navigate]);
+
+  // Cargar contadores de seguidores y verificar si sigue
+  useEffect(() => {
+    if (!user?.id) return;
+
+    const loadFollowData = async () => {
+      try {
+        const counts = await followerService.getCounts(user.id);
+        setFollowersCount(counts.followersCount);
+        setFollowingCount(counts.followingCount);
+
+        // Si no es el dueño, verificar si el usuario actual sigue a este perfil
+        if (!isOwner && currentLoggedUser) {
+          const following = await followerService.checkFollowing(user.id);
+          setIsFollowing(following);
+        }
+      } catch (error) {
+        console.error('Error al cargar datos de seguidores:', error);
+      }
+    };
+
+    loadFollowData();
+  }, [user?.id, isOwner, currentLoggedUser]);
+
+  // Cargar datos del panel lateral (solo cuando isOwner === true)
+  useEffect(() => {
+    if (!isOwner || !currentLoggedUser?.id) return;
+
+    const loadSidePanelData = async () => {
+      try {
+        // Cargar cuentas populares
+        setLoadingPopular(true);
+        const popular = await notificationService.getPopularUsers();
+        setPopularUsers(popular);
+        setLoadingPopular(false);
+
+        // Cargar conteo de notificaciones no leídas
+        const count = await notificationService.getUnreadCount();
+        setUnreadCount(count);
+      } catch (error) {
+        console.error('Error al cargar datos del panel lateral:', error);
+        setLoadingPopular(false);
+      }
+    };
+
+    loadSidePanelData();
+  }, [isOwner, currentLoggedUser?.id]);
+
+  // Cargar notificaciones cuando se abre la pestaña
+  useEffect(() => {
+    if (!isOwner || sidePanelTab !== 'notificaciones' || !currentLoggedUser?.id) return;
+
+    const loadNotifications = async () => {
+      try {
+        setLoadingNotifications(true);
+        const notifs = await notificationService.getNotifications();
+        setNotifications(notifs);
+        setLoadingNotifications(false);
+      } catch (error) {
+        console.error('Error al cargar notificaciones:', error);
+        setLoadingNotifications(false);
+      }
+    };
+
+    loadNotifications();
+  }, [sidePanelTab, isOwner, currentLoggedUser?.id]);
 
   // Carga prendas y outfits del usuario visitado (o propio)
   useEffect(() => {
@@ -179,6 +284,99 @@ const Profile = () => {
       setPruebaSeleccionada(null);
     } catch {
       alert('Error al eliminar la prueba');
+    }
+  };
+
+  const handleFollowToggle = async () => {
+    if (followingLoading || !user?.id) return;
+    setFollowingLoading(true);
+    try {
+      if (isFollowing) {
+        await followerService.unfollow(user.id);
+        setIsFollowing(false);
+        setFollowersCount(prev => Math.max(0, prev - 1));
+      } else {
+        await followerService.follow(user.id);
+        setIsFollowing(true);
+        setFollowersCount(prev => prev + 1);
+      }
+    } catch (error) {
+      console.error('Error al cambiar seguimiento:', error);
+      setStatusMessage({ type: 'error', text: 'Error al cambiar seguimiento' });
+    } finally {
+      setFollowingLoading(false);
+    }
+  };
+
+  const handleShowFollowers = async () => {
+    if (!user?.id) return;
+    setShowFollowersModal(true);
+    setLoadingFollowers(true);
+    try {
+      const followers = await followerService.getFollowers(user.id);
+      setFollowersList(followers);
+    } catch (error) {
+      console.error('Error al cargar seguidores:', error);
+    } finally {
+      setLoadingFollowers(false);
+    }
+  };
+
+  const handleShowFollowing = async () => {
+    if (!user?.id) return;
+    setShowFollowingModal(true);
+    setLoadingFollowing(true);
+    try {
+      const following = await followerService.getFollowing(user.id);
+      setFollowingList(following);
+    } catch (error) {
+      console.error('Error al cargar seguidos:', error);
+    } finally {
+      setLoadingFollowing(false);
+    }
+  };
+
+  // Funciones para panel lateral
+  const handleSearch = async (query) => {
+    setSearchQuery(query);
+    if (!query || query.length < 2) {
+      setSearchResults([]);
+      return;
+    }
+    setLoadingSearch(true);
+    try {
+      const results = await notificationService.searchUsers(query);
+      setSearchResults(results);
+    } catch (error) {
+      console.error('Error al buscar usuarios:', error);
+    } finally {
+      setLoadingSearch(false);
+    }
+  };
+
+  const handleMarkAsRead = async () => {
+    try {
+      await notificationService.markAsRead();
+      setUnreadCount(0);
+      setNotifications(prev => prev.map(n => ({ ...n, leida: true })));
+    } catch (error) {
+      console.error('Error al marcar notificaciones como leídas:', error);
+    }
+  };
+
+  const handleSidePanelFollowToggle = async (targetUserId, isFollowing) => {
+    try {
+      if (isFollowing) {
+        await followerService.unfollow(targetUserId);
+        setPopularUsers(prev => prev.map(u => u.id === targetUserId ? { ...u, is_following: false } : u));
+        setSearchResults(prev => prev.map(u => u.id === targetUserId ? { ...u, is_following: false } : u));
+      } else {
+        await followerService.follow(targetUserId);
+        setPopularUsers(prev => prev.map(u => u.id === targetUserId ? { ...u, is_following: true } : u));
+        setSearchResults(prev => prev.map(u => u.id === targetUserId ? { ...u, is_following: true } : u));
+      }
+    } catch (error) {
+      console.error('Error al cambiar seguimiento:', error);
     }
   };
 
@@ -318,7 +516,11 @@ const Profile = () => {
       ];
 
   return (
-    <div className="h-screen bg-slate-50 text-gray-900 flex justify-center w-full relative selection:bg-rosado/30 overflow-y-scroll scrollbar-thin scrollbar-thumb-morado/20 scrollbar-track-transparent hover:scrollbar-thumb-morado/40 transition-colors">
+    <div 
+      ref={scrollContainerRef}
+      onScroll={handleScroll}
+      className="h-screen bg-slate-50 text-gray-900 flex justify-center w-full relative selection:bg-rosado/30 overflow-y-scroll scrollbar-thin scrollbar-thumb-morado/20 scrollbar-track-transparent hover:scrollbar-thumb-morado/40 transition-colors"
+    >
       
       {statusMessage.text && (
         <div className={`fixed bottom-6 right-6 z-50 px-6 py-3.5 rounded-2xl shadow-xl border text-sm font-bold flex items-center gap-2 bg-white transition-all ${
@@ -329,8 +531,34 @@ const Profile = () => {
         </div>
       )}
 
-      <div className="w-full max-w-6xl bg-white h-fit shadow-sm flex flex-col relative mb-12">
+      <div className={`w-full max-w-6xl bg-white h-fit shadow-sm flex flex-col relative mb-12 ${isOwner ? 'lg:flex-row' : ''}`}>
         
+        {/* Columna Izquierda - Contenido Principal */}
+        <div className={`flex-1 flex flex-col ${isOwner ? 'lg:border-r border-gray-100' : ''}`}>
+
+        {/* Header estilo Twitter — sticky, con efecto vidrio esmerilado */}
+        <div
+          className="sticky top-0 z-40 -mb-14 h-14 flex items-center px-6"
+          style={{
+            backgroundColor: `rgba(255,255,255,${scrollProgress * 0.85})`,
+            backdropFilter: scrollProgress > 0.02 ? `blur(${scrollProgress * 14}px)` : 'none',
+            WebkitBackdropFilter: scrollProgress > 0.02 ? `blur(${scrollProgress * 14}px)` : 'none',
+            borderBottom: scrollProgress > 0.5 ? '1px solid rgb(229,231,235)' : '1px solid transparent',
+            transition: 'border-color 0.2s',
+          }}
+        >
+          <div
+            className="flex flex-col leading-tight overflow-hidden"
+            style={{
+              opacity: scrollProgress,
+              transform: `translateY(${(1 - scrollProgress) * 10}px)`,
+            }}
+          >
+            <span className="font-black text-gray-900 text-[15px] truncate">{nombreUsuario} {apellidoUsuario}</span>
+            <span className="text-xs text-gray-500">{prendas.length} prendas</span>
+          </div>
+        </div>
+
         {/* PORTADA */}
         <div 
           className="h-44 w-full relative bg-cover bg-center border-b border-gray-100"
@@ -345,7 +573,7 @@ const Profile = () => {
           {isOwner && (
             <button 
               onClick={handleLogout}
-              className="absolute top-4 right-4 z-30 px-4 py-2.5 text-xs font-bold text-white bg-black/20 hover:bg-black/40 backdrop-blur-md rounded-xl transition-all flex items-center gap-2"
+              className="absolute top-4 right-4 z-50 px-4 py-2.5 text-xs font-bold text-white bg-black/20 hover:bg-black/40 backdrop-blur-md rounded-xl transition-all flex items-center gap-2"
             >
               <LogOut className="w-4 h-4" /> Cerrar sesión
             </button>
@@ -466,29 +694,61 @@ const Profile = () => {
                 </form>
               ) : (
                 <>
-                  <div>
-                    <h2 className="text-4xl font-black text-gray-900 tracking-tight">{nombreUsuario} {apellidoUsuario}</h2>
-                    {/* ✅ Email solo visible para el dueño */}
-                    {isOwner && (
-                      <p className="text-sm font-semibold text-gray-400 flex items-center justify-center md:justify-start gap-1.5 mt-1">
-                        <Mail className="w-4 h-4 text-gray-300" /> {user.email}
-                      </p>
-                    )}
+                  <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 w-full">
+                    <div>
+                      <h2 className="text-3xl font-black text-gray-900 tracking-tight">{nombreUsuario} {apellidoUsuario}</h2>
+                      {isOwner && (
+                        <p className="text-sm font-semibold text-gray-400 flex items-center justify-center md:justify-start gap-1.5 mt-1">
+                          <Mail className="w-4 h-4 text-gray-300" /> {user.email}
+                        </p>
+                      )}
+                    </div>
+
+                    {/* Tags de ubicación/fecha/privacidad — ahora al lado del nombre */}
+                    <div className="flex flex-wrap justify-center md:justify-end gap-2 text-xs font-semibold text-gray-500">
+                      <span className="flex items-center gap-1 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                        <MapPin className="w-3.5 h-3.5 text-morado" /> {user.ciudad || 'La Paz, Bolivia'}
+                      </span>
+                      <span className="flex items-center gap-1 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                        <Calendar className="w-3.5 h-3.5 text-celeste" /> Unido el {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Recientemente'}
+                      </span>
+                      <span className="flex items-center gap-1 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
+                        {user.es_privado ? <><Lock className="w-3.5 h-3.5 text-red-400" /> Privado</> : <><Globe className="w-3.5 h-3.5 text-verde" /> Público</>}
+                      </span>
+                    </div>
                   </div>
-                  <p className="text-base text-gray-600 max-w-2xl font-medium leading-relaxed bg-slate-50/60 p-4 rounded-2xl border border-gray-100 mx-auto md:mx-0 text-left flex items-start gap-2">
+
+                  {/* Bio sin recuadro */}
+                  <p className="text-base text-gray-600 max-w-2xl font-medium leading-relaxed mx-auto md:mx-0 text-left flex items-start gap-2">
                     <Lightbulb className="w-5 h-5 text-morado flex-shrink-0 mt-0.5" />
                     <span>{user.bio || 'Configurando combinaciones perfectas desde su armario.'}</span>
                   </p>
-                  <div className="flex flex-wrap justify-center md:justify-start gap-2.5 pt-1 text-xs font-semibold text-gray-500">
-                    <span className="flex items-center gap-1 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                      <MapPin className="w-3.5 h-3.5 text-morado" /> {user.ciudad || 'La Paz, Bolivia'}
-                    </span>
-                    <span className="flex items-center gap-1 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                      <Calendar className="w-3.5 h-3.5 text-celeste" /> Unido el {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Recientemente'}
-                    </span>
-                    <span className="flex items-center gap-1 bg-gray-50 px-3 py-1.5 rounded-lg border border-gray-100">
-                      {user.es_privado ? <><Lock className="w-3.5 h-3.5 text-red-400" /> Privado</> : <><Globe className="w-3.5 h-3.5 text-verde" /> Público</>}
-                    </span>
+
+                  {/* Contadores de seguidores/seguidos */}
+                  <div className="flex items-center gap-4 justify-center md:justify-start">
+                    <button onClick={handleShowFollowers} className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100 transition-colors">
+                      <Users className="w-4 h-4 text-morado" />
+                      <span className="text-sm font-bold text-gray-700">{followersCount}</span>
+                      <span className="text-xs text-gray-500">Seguidores</span>
+                    </button>
+                    <button onClick={handleShowFollowing} className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-xl border border-gray-100 hover:bg-gray-100 transition-colors">
+                      <Users className="w-4 h-4 text-celeste" />
+                      <span className="text-sm font-bold text-gray-700">{followingCount}</span>
+                      <span className="text-xs text-gray-500">Seguidos</span>
+                    </button>
+                    {!isOwner && (
+                      <button
+                        onClick={handleFollowToggle}
+                        disabled={followingLoading}
+                        className={`px-5 py-2 rounded-xl font-bold text-sm transition-colors ${
+                          isFollowing
+                            ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            : 'bg-[#9f8aef] text-white hover:bg-[#9f8aef]/80'
+                        }`}
+                      >
+                        {followingLoading ? '...' : isFollowing ? 'Siguiendo' : 'Seguir'}
+                      </button>
+                    )}
                   </div>
                 </>
               )}
@@ -840,7 +1100,346 @@ const Profile = () => {
           )}
 
         </div>
+        </div>
+
+        {/* Columna Derecha - Panel Lateral (solo cuando isOwner === true) */}
+        {isOwner && (
+          <div className="w-full lg:w-80 lg:min-w-[320px] bg-gray-50 lg:bg-white flex flex-col border-t lg:border-t-0 lg:border-l border-gray-100 lg:sticky lg:top-0 lg:self-start lg:max-h-screen">
+            {/* Pestañas del panel lateral */}
+            <div className="flex border-b border-gray-100 bg-white">
+              <button
+                onClick={() => setSidePanelTab('explorar')}
+                className={`flex-1 py-3 px-4 text-xs font-bold transition-colors ${
+                  sidePanelTab === 'explorar' ? 'text-morado border-b-2 border-morado' : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                EXPLORAR
+              </button>
+              <button
+                onClick={() => {
+                  setSidePanelTab('notificaciones');
+                  handleMarkAsRead();
+                }}
+                className={`flex-1 py-3 px-4 text-xs font-bold transition-colors relative ${
+                  sidePanelTab === 'notificaciones' ? 'text-morado border-b-2 border-morado' : 'text-gray-400 hover:text-gray-600'
+                }`}
+              >
+                NOTIFICACIONES
+                {unreadCount > 0 && (
+                  <span className="absolute top-2 right-2 w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center">
+                    {unreadCount}
+                  </span>
+                )}
+              </button>
+            </div>
+
+            {/* Contenido del panel lateral */}
+            <div className="flex-1 overflow-y-auto min-h-0">
+              {sidePanelTab === 'explorar' ? (
+                <div className="p-4">
+                  <div className="relative mb-4">
+                    <Search className="absolute left-3 w-4 h-4 text-gray-400 top-1/2 -translate-y-1/2" />
+                    <input
+                      type="text"
+                      placeholder="Buscar usuario..."
+                      value={searchQuery}
+                      onChange={(e) => handleSearch(e.target.value)}
+                      className="w-full pl-10 pr-3 py-2 bg-gray-50 focus:bg-white border border-transparent focus:border-morado rounded-xl text-sm focus:outline-none transition-all"
+                    />
+                  </div>
+
+                  {searchQuery ? (
+                    <div className="space-y-3">
+                      {loadingSearch ? (
+                        <div className="text-center py-8">
+                          <div className="w-6 h-6 border-2 border-morado border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                          <p className="text-gray-400 text-sm">Buscando...</p>
+                        </div>
+                      ) : searchResults.length === 0 ? (
+                        <p className="text-gray-400 text-sm text-center py-8">No se encontraron usuarios</p>
+                      ) : (
+                        searchResults.map((u) => (
+  <div key={u.id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100">
+    {/* Foto clickeable */}
+    <div
+      onClick={() => navigate(`/perfil/${u.id}`)}
+      className="cursor-pointer flex-shrink-0"
+    >
+      {u.foto_perfil ? (
+        <img src={u.foto_perfil} alt={u.nombre} className="w-10 h-10 rounded-full object-cover hover:opacity-80 transition-opacity" />
+      ) : (
+        <div className="w-10 h-10 rounded-full bg-[#f6ccfa] flex items-center justify-center hover:opacity-80 transition-opacity">
+          <span className="text-[#9f8aef] font-bold text-sm">{u.nombre?.charAt(0) || 'U'}</span>
+        </div>
+      )}
+    </div>
+    {/* Nombre clickeable */}
+    <div
+      className="flex-1 min-w-0 cursor-pointer"
+      onClick={() => navigate(`/perfil/${u.id}`)}
+    >
+      <p className="font-semibold text-gray-900 text-sm truncate hover:text-[#9f8aef] transition-colors">{u.nombre} {u.apellido}</p>
+      <p className="text-xs text-gray-400">{u.totalLikes} likes</p>
+    </div>
+    <button
+      onClick={() => handleSidePanelFollowToggle(u.id, u.is_following)}
+      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+        u.is_following
+          ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          : 'bg-[#9f8aef] text-white hover:bg-[#9f8aef]/80'
+      }`}
+    >
+      {u.is_following ? 'Siguiendo' : 'Seguir'}
+    </button>
+  </div>
+))
+                      )}
+                    </div>
+                  ) : (
+                    <div className="space-y-3">
+                      <p className="text-xs font-bold text-gray-400 uppercase tracking-wider mb-2">Cuentas Populares</p>
+                      {loadingPopular ? (
+                        <div className="text-center py-8">
+                          <div className="w-6 h-6 border-2 border-morado border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                          <p className="text-gray-400 text-sm">Cargando...</p>
+                        </div>
+                      ) : popularUsers.length === 0 ? (
+                        <p className="text-gray-400 text-sm text-center py-8">No hay cuentas populares aún</p>
+                      ) : (
+                        popularUsers.map((u) => (
+  <div key={u.id} className="flex items-center gap-3 p-3 bg-white rounded-xl border border-gray-100">
+    {/* Foto clickeable */}
+    <div
+      onClick={() => navigate(`/perfil/${u.id}`)}
+      className="cursor-pointer flex-shrink-0"
+    >
+      {u.foto_perfil ? (
+        <img src={u.foto_perfil} alt={u.nombre} className="w-10 h-10 rounded-full object-cover hover:opacity-80 transition-opacity" />
+      ) : (
+        <div className="w-10 h-10 rounded-full bg-[#f6ccfa] flex items-center justify-center hover:opacity-80 transition-opacity">
+          <span className="text-[#9f8aef] font-bold text-sm">{u.nombre?.charAt(0) || 'U'}</span>
+        </div>
+      )}
+    </div>
+    {/* Nombre clickeable */}
+    <div
+      className="flex-1 min-w-0 cursor-pointer"
+      onClick={() => navigate(`/perfil/${u.id}`)}
+    >
+      <p className="font-semibold text-gray-900 text-sm truncate hover:text-[#9f8aef] transition-colors">{u.nombre} {u.apellido}</p>
+      <p className="text-xs text-gray-400">{u.totalLikes} likes</p>
+    </div>
+    <button
+      onClick={() => handleSidePanelFollowToggle(u.id, u.is_following)}
+      className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
+        u.is_following
+          ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          : 'bg-[#9f8aef] text-white hover:bg-[#9f8aef]/80'
+      }`}
+    >
+      {u.is_following ? 'Siguiendo' : 'Seguir'}
+    </button>
+  </div>
+))
+                      )}
+                    </div>
+                  )}
+                </div>
+              ) : (
+                <div className="p-4">
+                  {loadingNotifications ? (
+                    <div className="text-center py-8">
+                      <div className="w-6 h-6 border-2 border-morado border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                      <p className="text-gray-400 text-sm">Cargando...</p>
+                    </div>
+                  ) : notifications.length === 0 ? (
+                    <p className="text-gray-400 text-sm text-center py-8">No tienes notificaciones</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {notifications.map((notif) => (
+  <div
+    key={notif.id}
+    className={`p-3 rounded-xl border transition-colors ${
+      notif.leida ? 'bg-gray-50 border-gray-100' : 'bg-white border-morado/30'
+    }`}
+  >
+    <div className="flex items-start gap-3">
+      
+      {/* Foto del usuario — clickeable → va al perfil */}
+      <div
+        onClick={() => notif.users?.id && navigate(`/perfil/${notif.users.id}`)}
+        className="cursor-pointer flex-shrink-0"
+      >
+        {notif.users?.foto_perfil ? (
+          <img
+            src={notif.users.foto_perfil}
+            alt={notif.users.nombre}
+            className="w-8 h-8 rounded-full object-cover hover:opacity-80 transition-opacity"
+          />
+        ) : (
+          <div className="w-8 h-8 rounded-full bg-[#f6ccfa] flex items-center justify-center hover:opacity-80 transition-opacity">
+            <span className="text-[#9f8aef] font-bold text-xs">
+              {notif.users?.nombre?.charAt(0) || 'U'}
+            </span>
+          </div>
+        )}
       </div>
+
+      <div className="flex-1 min-w-0">
+        <p className="text-sm text-gray-900">
+          {/* Nombre clickeable → va al perfil */}
+          <span
+            onClick={() => notif.users?.id && navigate(`/perfil/${notif.users.id}`)}
+            className="font-semibold cursor-pointer hover:text-[#9f8aef] transition-colors"
+          >
+            {notif.users?.nombre} {notif.users?.apellido}
+          </span>
+          {notif.tipo === 'seguidor' ? ' comenzó a seguirte' : ' le gustó tu prenda'}
+        </p>
+
+        {/* Imagen del pin — clickeable → va al pin */}
+        {notif.tipo === 'like' && notif.prendas && (
+          <div
+            onClick={() => notif.prendas?.id && navigate(`/prenda/${notif.prendas.id}`)}
+            className="mt-2 flex items-center gap-2 cursor-pointer group"
+          >
+            {notif.prendas.imagen_url && (
+              <img
+                src={notif.prendas.imagen_url}
+                alt={notif.prendas.nombre}
+                className="w-12 h-12 rounded-lg object-cover group-hover:opacity-80 transition-opacity"
+              />
+            )}
+            <span className="text-xs text-gray-500 truncate group-hover:text-[#9f8aef] transition-colors">
+              {notif.prendas.nombre}
+            </span>
+          </div>
+        )}
+
+        <p className="text-xs text-gray-400 mt-1">
+          {new Date(notif.created_at).toLocaleDateString('es-ES', {
+            day: 'numeric',
+            month: 'short',
+            hour: '2-digit',
+            minute: '2-digit'
+          })}
+        </p>
+      </div>
+    </div>
+  </div>
+))}
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
+          </div>
+        )}
+
+      {/* Modal de Seguidores */}
+      {showFollowersModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">Seguidores ({followersCount})</h3>
+              <button onClick={() => setShowFollowersModal(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {loadingFollowers ? (
+                <div className="text-center py-8">
+                  <div className="w-6 h-6 border-2 border-morado border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-gray-400 text-sm">Cargando...</p>
+                </div>
+              ) : followersList.length === 0 ? (
+                <p className="text-gray-400 text-sm text-center py-8">No tiene seguidores aún</p>
+              ) : (
+                <div className="space-y-3">
+                  {followersList.map((follower) => (
+                    <button
+                      key={follower.id}
+                      onClick={() => {
+                        navigate(`/perfil/${follower.id}`);
+                        setShowFollowersModal(false);
+                      }}
+                      className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors w-full text-left"
+                    >
+                      {follower.foto_perfil ? (
+                        <img src={follower.foto_perfil} alt={follower.nombre} className="w-12 h-12 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-[#f6ccfa] flex items-center justify-center">
+                          <span className="text-[#9f8aef] font-bold">
+                            {follower.nombre?.charAt(0) || 'U'}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          {follower.nombre} {follower.apellido}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Modal de Seguidos */}
+      {showFollowingModal && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col">
+            <div className="p-4 border-b border-gray-100 flex items-center justify-between">
+              <h3 className="text-lg font-bold text-gray-900">Seguidos ({followingCount})</h3>
+              <button onClick={() => setShowFollowingModal(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
+                <X className="w-5 h-5 text-gray-500" />
+              </button>
+            </div>
+            <div className="flex-1 overflow-y-auto p-4">
+              {loadingFollowing ? (
+                <div className="text-center py-8">
+                  <div className="w-6 h-6 border-2 border-morado border-t-transparent rounded-full animate-spin mx-auto mb-2" />
+                  <p className="text-gray-400 text-sm">Cargando...</p>
+                </div>
+              ) : followingList.length === 0 ? (
+                <p className="text-gray-400 text-sm text-center py-8">No sigue a nadie aún</p>
+              ) : (
+                <div className="space-y-3">
+                  {followingList.map((following) => (
+                    <button
+                      key={following.id}
+                      onClick={() => {
+                        navigate(`/perfil/${following.id}`);
+                        setShowFollowingModal(false);
+                      }}
+                      className="flex items-center gap-3 p-3 rounded-xl hover:bg-gray-50 transition-colors w-full text-left"
+                    >
+                      {following.foto_perfil ? (
+                        <img src={following.foto_perfil} alt={following.nombre} className="w-12 h-12 rounded-full object-cover" />
+                      ) : (
+                        <div className="w-12 h-12 rounded-full bg-[#f6ccfa] flex items-center justify-center">
+                          <span className="text-[#9f8aef] font-bold">
+                            {following.nombre?.charAt(0) || 'U'}
+                          </span>
+                        </div>
+                      )}
+                      <div>
+                        <p className="font-semibold text-gray-900">
+                          {following.nombre} {following.apellido}
+                        </p>
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+    </div>
     </div>
   );
 };

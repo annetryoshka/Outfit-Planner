@@ -66,7 +66,7 @@ const authController = {
 
   async actualizarPerfil(req, res) {
     try {
-      const { nombre, apellido, ciudad, bio, es_privado, passwordActual, nuevaPassword } = req.body
+      const { nombre, apellido, ciudad, bio, es_privado, passwordActual, nuevaPassword, fondo } = req.body
       let foto_perfil = req.body.foto_perfil;
 
       const userId = req.usuario?.id || req.user?.id;
@@ -138,6 +138,7 @@ const authController = {
         ciudad,
         bio,
         es_privado,
+        fondo,
         password: passwordFinal 
       })
 
