@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { useParams, useNavigate } from 'react-router-dom'
+import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { Canvas, FabricImage } from 'fabric'
 import { Save, Trash2, ChevronLeft, Sparkles, Shirt, Package, ArrowUp, ShoppingBasket, Layers, CircleDot } from 'lucide-react'
 import Swal from 'sweetalert2'
@@ -68,8 +68,10 @@ const PrendaPin = ({ prenda, onAgregar }) => (
 )
 
 export default function LienzoPage() {
+  
   const { id } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const canvasRef = useRef(null)
   const [canvas, setCanvas] = useState(null)
   const [prendas, setPrendas] = useState([])
@@ -84,6 +86,8 @@ export default function LienzoPage() {
   const [catActiva, setCatActiva] = useState(null)
   const [contextMenu, setContextMenu] = useState(null)
   const [quitandoFondo, setQuitandoFondo] = useState(false)
+  const [esClon, setEsClon] = useState(false) 
+  const [origen, setOrigen] = useState('calendario')
 
   useEffect(() => {
     const el = canvasRef.current
@@ -116,14 +120,45 @@ export default function LienzoPage() {
   }, [])
 
   useEffect(() => {
-    if (id) outfitService.obtenerPorId(id).then(setOutfit).catch(() => {})
+    // Detectar origen de navegación.
+    // OJO: document.referrer NO sirve aquí — es una propiedad del navegador que solo
+    // cambia con cargas de página completas, no con navegación client-side de React Router.
+    // Usamos en su lugar el `state` que la página anterior pasó explícitamente al navegar,
+    // y guardamos una copia en sessionStorage por si el usuario refresca el lienzo
+    // directamente (en ese caso el state de React Router se pierde).
+    const origenState = location.state?.origen
+    if (origenState === 'perfil' || origenState === 'calendario') {
+      setOrigen(origenState)
+      sessionStorage.setItem('lienzo_origen', origenState)
+    } else {
+      const guardado = sessionStorage.getItem('lienzo_origen')
+      setOrigen(guardado === 'perfil' ? 'perfil' : 'calendario')
+    }
+
+    if (id) {
+      outfitService.obtenerPorId(id)
+        .then(data => {
+          setOutfit(data)
+          setEsClon(!!data?.es_clon)
+        })
+        .catch(() => {})
+    }
     prendaService.obtenerTodas().then(setPrendas).catch(() => {})
-  }, [id])
+  }, [id, location.state])
 
   useEffect(() => {
     if (!canvas || !outfit?.canvas_data) return
     canvas.loadFromJSON(outfit.canvas_data)
-      .then(() => { canvas.backgroundColor = fondoColorRef.current; canvas.requestRenderAll() })
+      .then(() => {
+        // Fabric ya restauró el backgroundColor guardado como parte de loadFromJSON.
+        // Sincronizamos el ESTADO de React con lo que quedó en el canvas (para que el
+        // swatch correcto se vea resaltado en la paleta) — en vez de forzar el canvas
+        // a usar el estado, que todavía tiene el valor por defecto '#ffffff' y era
+        // justo lo que le borraba el color guardado al outfit.
+        const bgCargado = typeof canvas.backgroundColor === 'string' ? canvas.backgroundColor : '#ffffff'
+        setFondoColor(bgCargado)
+        canvas.requestRenderAll()
+      })
       .catch(err => console.error(err))
   }, [canvas, outfit?.canvas_data])
 
@@ -132,21 +167,30 @@ export default function LienzoPage() {
     : []
 
   const agregarPrenda = (prenda) => {
-    if (!canvas || !prenda.imagen_url) return
-    FabricImage.fromURL(prenda.imagen_url, { crossOrigin: 'anonymous' })
-      .then(img => {
-        img.scaleToHeight(150)
-        img.set({ left: 80, top: 80, hasControls: true })
-        canvas.add(img); canvas.setActiveObject(img); canvas.requestRenderAll()
-      }).catch(() => {})
+  if (!canvas || !prenda.imagen_url) return
+  // Bloquear edición del canvas si es clon
+  if (esClon) {
+    alert('Este outfit es un clon. Solo puedes editar su nombre y ocasión desde el calendario.')
+    return
   }
+  FabricImage.fromURL(prenda.imagen_url, { crossOrigin: 'anonymous' })
+    .then(img => {
+      img.scaleToHeight(150)
+      img.set({ left: 80, top: 80, hasControls: true })
+      canvas.add(img); canvas.setActiveObject(img); canvas.requestRenderAll()
+    }).catch(() => {})
+}
 
   const eliminarPrendaDelCanvas = () => {
-    if (!canvas) return
-    const obj = contextMenu?.obj || canvas.getActiveObject()
-    if (obj) { canvas.remove(obj); canvas.requestRenderAll() }
+  if (!canvas) return
+  if (esClon) {
     setContextMenu(null)
+    return
   }
+  const obj = contextMenu?.obj || canvas.getActiveObject()
+  if (obj) { canvas.remove(obj); canvas.requestRenderAll() }
+  setContextMenu(null)
+}
 
   const cambiarFondo = (color) => {
     setFondoColor(color)
@@ -188,17 +232,24 @@ export default function LienzoPage() {
   }
 
   const eliminarOutfit = () => {
-    if (!id) return
-    setConfirmAction({
-      show: true, type: 'eliminar',
-      action: async () => {
-        setEliminandoOutfit(true)
-        try { await outfitService.eliminar(id); navigate('/perfil?tab=outfits') }
-        catch (err) { Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message || err.message, confirmButtonColor: '#9f8aef' }) }
-        finally { setEliminandoOutfit(false); setConfirmAction({ show: false, type: '', action: null }) }
+  if (!id) return
+  setConfirmAction({
+    show: true,
+    type: 'eliminar',
+    action: async () => {
+      setEliminandoOutfit(true)
+      try {
+        await outfitService.eliminar(id)
+        navigate('/perfil?tab=outfits')
+      } catch (err) {
+        setConfirmAction({ show: false, type: '', action: null })
+        Swal.fire({ icon: 'error', title: 'Error', text: err.response?.data?.message || err.message, confirmButtonColor: '#9f8aef' })
+      } finally {
+        setEliminandoOutfit(false)
       }
-    })
-  }
+    }
+  })
+}
 
   const guardar = async () => {
     if (!canvas || !id) return
@@ -245,40 +296,85 @@ export default function LienzoPage() {
       )}
 
       {confirmAction.show && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm">
-          <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full mx-4">
-            <h3 className="text-xl font-bold text-gray-900 mb-2">¿Eliminar este outfit?</h3>
-            <p className="text-gray-500 text-sm mb-6">Esta acción no se puede deshacer.</p>
-            <div className="flex gap-3">
-              <button onClick={() => setConfirmAction({ show: false, type: '', action: null })}
-                className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold rounded-2xl transition-all">
-                Cancelar
-              </button>
-              <button onClick={confirmAction.action} disabled={eliminandoOutfit}
-                className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-2xl transition-all disabled:opacity-50">
-                {eliminandoOutfit ? 'Eliminando...' : 'Eliminar'}
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* ════ HEADER ════ */}
-      <div className="bg-white border-b border-[#f6ccfa] px-5 py-3 flex items-center gap-3 flex-shrink-0">
-        <button type="button" onClick={() => navigate('/calendario')}
-          className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#9f8aef] transition-colors">
-          <ChevronLeft size={16} /> Volver
+  <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/30 backdrop-blur-sm">
+    <div className="bg-white rounded-3xl shadow-2xl p-8 max-w-sm w-full mx-4">
+      <h3 className="text-xl font-bold text-gray-900 mb-2">
+        ¿Eliminar este outfit?
+      </h3>
+      <p className="text-gray-600 text-sm mb-6">
+        Esta acción no se puede deshacer. El outfit se eliminará permanentemente.
+      </p>
+      <div className="flex gap-3">
+        <button
+          onClick={() => setConfirmAction({ show: false, type: '', action: null })}
+          className="flex-1 px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-900 font-semibold rounded-2xl transition-all"
+        >
+          Cancelar
         </button>
-        <h1 className="font-semibold text-gray-800 flex-1 truncate">{outfit?.nombre || 'Lienzo de Outfit'}</h1>
-        <button type="button" onClick={eliminarOutfit} disabled={eliminandoOutfit}
-          className="flex items-center gap-1.5 text-sm text-red-400 hover:text-red-500 border border-red-200 px-3 py-1.5 rounded-full transition-colors disabled:opacity-50">
-          <Trash2 size={13} /> {eliminandoOutfit ? 'Eliminando...' : 'Eliminar outfit'}
-        </button>
-        <button type="button" onClick={guardar} disabled={guardando}
-          className="flex items-center gap-1.5 bg-[#9f8aef] text-white px-4 py-1.5 rounded-full text-sm hover:bg-[#9f8aef]/80 transition-colors disabled:opacity-50">
-          <Save size={13} /> {guardando ? 'Guardando...' : 'Guardar'}
+        <button
+          onClick={confirmAction.action}
+          disabled={eliminandoOutfit}
+          className="flex-1 px-4 py-2.5 bg-red-500 hover:bg-red-600 text-white font-semibold rounded-2xl transition-all disabled:opacity-50"
+        >
+          {eliminandoOutfit ? 'Eliminando...' : 'Eliminar'}
         </button>
       </div>
+    </div>
+  </div>
+)}
+
+      {/* ════ HEADER ════ */}
+      {/* ════ HEADER ════ */}
+<div className="bg-white border-b border-[#f6ccfa] px-5 py-3 flex items-center gap-3 flex-shrink-0">
+  <button
+  type="button"
+  onClick={() => origen === 'perfil' ? navigate('/perfil?tab=outfits') : navigate('/calendario')}
+  className="flex items-center gap-1 text-sm text-gray-500 hover:text-[#9f8aef] transition-colors"
+>
+  <ChevronLeft size={16} />
+  {origen === 'perfil' ? 'Volver al perfil' : 'Volver al calendario'}
+</button>
+  
+  <div className="flex items-center gap-2 flex-1 min-w-0">
+    <h1 className="font-semibold text-gray-800 truncate">
+      {outfit?.nombre || 'Lienzo de Outfit'}
+    </h1>
+    {/* Badge clon visible en el header */}
+    {esClon && (
+      <span className="flex-shrink-0 text-[10px] font-bold text-[#9f8aef] bg-[#f6ccfa]/60 border border-[#9f8aef]/20 px-2 py-0.5 rounded-full">
+        CLON · Solo editar metadatos
+      </span>
+    )}
+  </div>
+
+  {/* Botón eliminar — solo para originales desde el lienzo */}
+  {!esClon && (
+    <button type="button" onClick={eliminarOutfit} disabled={eliminandoOutfit}
+      className="flex items-center gap-1.5 text-sm text-red-400 hover:text-red-500 border border-red-200 px-3 py-1.5 rounded-full transition-colors disabled:opacity-50">
+      <Trash2 size={13} /> {eliminandoOutfit ? 'Eliminando...' : 'Eliminar outfit'}
+    </button>
+  )}
+
+  {/* Botón guardar — solo para originales */}
+  {!esClon && (
+    <button type="button" onClick={guardar} disabled={guardando}
+      className="flex items-center gap-1.5 bg-[#9f8aef] text-white px-4 py-1.5 rounded-full text-sm hover:bg-[#9f8aef]/80 transition-colors disabled:opacity-50">
+      <Save size={13} /> {guardando ? 'Guardando...' : 'Guardar'}
+    </button>
+  )}
+
+  {/* Si es clon: botón volver al calendario en lugar de guardar */}
+  {esClon && (
+  <button
+    type="button"
+    onClick={() => origen === 'perfil' ? navigate('/perfil?tab=outfits') : navigate('/calendario')}
+    className="flex items-center gap-1.5 bg-gray-100 text-gray-600 px-4 py-1.5 rounded-full text-sm hover:bg-gray-200 transition-colors"
+  >
+    <ChevronLeft size={13} />
+    {origen === 'perfil' ? 'Volver al perfil' : 'Volver al calendario'}
+  </button>
+)}
+</div>
 
       {/* ════ CUERPO 3 COLUMNAS ════ */}
       <div className="flex flex-1 overflow-hidden">

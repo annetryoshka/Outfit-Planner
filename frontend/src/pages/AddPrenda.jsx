@@ -4,6 +4,7 @@ import { useNavigate, useParams } from 'react-router-dom'
 import prendaService from '../services/prendaService'
 import authService from '../services/authService'
 import { normalizeForDb, alignValueToOptions } from '../utils/normalizeForDb'
+import { Shirt } from 'lucide-react'
 
 
 const tipos = ['Superior', 'Inferior', 'Calzado', 'Accesorio', 'Otros']
@@ -401,9 +402,12 @@ const AddPrenda = () => {
     >
       <ArrowLeft className="w-6 h-6 text-[#9f8aef] group-hover:text-[#ffffff]" />
     </button>
-    <h1 className="text-3xl font-subtitulo text-gray-800">
-      {isEdit ? 'Editar Prenda' : 'Añadir Nueva Prenda'}
-    </h1>
+    <div className="flex items-center gap-2">
+  <Shirt size={16} className="text-[#9f8aef]" />
+  <h1 className="text-xl font-semibold text-gray-700 uppercase tracking-widest">
+    {isEdit ? 'Editar Prenda' : 'Añadir Nueva Prenda'}
+  </h1>
+</div>
   </div>
   <div className="w-full h-px bg-[#f6ccfa]" />
 </div>
