@@ -256,11 +256,11 @@ const PrendaDetail = () => {
 
       {/* Navbar — misma altura fija (72px) que HomePage y WishlistPage */}
       <div
-        className="fixed top-0 left-0 w-full z-50 bg-white/80 backdrop-blur-sm shadow-sm"
+        className="fixed top-0 left-0 w-full z-50 bg-white/80 backdrop-blur-sm shadow-sm transition-all pl-0 md:pl-10"
         style={{ height: '72px' }}
       >
-        <div className="max-w-[1400px] mx-auto px-4 h-full flex items-center">
-          <button onClick={() => navigate('/')} className="h-10 w-auto cursor-pointer ml-8 mr-6 hover:opacity-90 transition-all">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8 h-full flex items-center gap-4">
+          <button onClick={() => navigate('/')} className="h-10 w-auto cursor-pointer ml-8 mr-6 hover:opacity-90 transition-all shrink-0">
             <img src={logo6} alt="PinWand" className="h-full w-auto object-contain" />
           </button>
           <div className="flex-1 relative">
