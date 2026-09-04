@@ -394,9 +394,9 @@ export default function DashboardPage() {
   return (
     <div className="min-h-screen bg-gradient-to-b from-[#fafbad] from-5% via-white via-50% to-[#fafbad] to-95% bg-fixed">
       {/* ── Navbar — fixed, transparente ── */}
-      <div className="fixed top-0 left-0 w-full z-50 py-4 bg-white/80 backdrop-blur-sm shadow-sm">
-        <div className="max-w-[1400px] mx-auto px-4 flex items-center">
-          <button onClick={() => navigate('/')} className="h-10 w-auto cursor-pointer ml-8 mr-6 hover:opacity-90 transition-all">
+      <div className="fixed top-0 left-0 w-full z-50 py-4 bg-white/80 backdrop-blur-sm shadow-sm transition-all pl-0 md:pl-10">
+        <div className="max-w-[1400px] mx-auto px-4 md:px-8 flex items-center gap-4">
+          <button onClick={() => navigate('/')} className="h-10 w-auto cursor-pointer ml-8 mr-6 hover:opacity-90 transition-all shrink-0">
             <img src={logo6} alt="PinWand" className="h-full w-auto object-contain" />
           </button>
           <div className="flex-1 relative">

@@ -60,7 +60,7 @@ const Sidebar = () => {
   ]
 
   return (
-    <div className="fixed left-0 top-0 w-20 bg-[#c2e1f9] h-screen flex flex-col items-center pt-8 pb-8 gap-4 z-[60]">
+    <div className="fixed left-0 top-0 w-20 bg-[#c2e1f9] h-dvh flex flex-col items-center pt-8 pb-8 gap-4 z-[60]">
       {/* Navegación Vertical */}
       <nav className="flex flex-col gap-4">
         {menuItems.map((item) => {
@@ -107,10 +107,7 @@ const Sidebar = () => {
         })}
       </nav>
 
-      <div className="flex-1"></div>
-      
-      {/* Tope Invisible para ajustar posición de botones inferiores */}
-      <div className="h-20"></div>
+      <div className="flex-1 min-h-4"></div>
 
       {/* Botón Añadir Prenda */}
       <div className="relative group">
