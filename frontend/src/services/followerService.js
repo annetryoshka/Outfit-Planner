@@ -13,10 +13,10 @@ const followerService = {
     return response.data;
   },
 
-  // Verificar si un usuario sigue a otro
-  checkFollowing: async (followingId) => {
-    const response = await api.get(`/followers/check/${followingId}`);
-    return response.data.isFollowing;
+  // Verificar si el usuario actual sigue a otro usuario
+  async checkFollowing(userId) {
+    const response = await api.get(`/followers/check/${userId}`);
+    return response.data.followState; // 'ninguno' | 'pendiente' | 'aceptado'
   },
 
   // Obtener conteo de seguidores y seguidos
@@ -34,6 +34,18 @@ const followerService = {
   // Obtener lista de seguidos
   getFollowing: async (userId) => {
     const response = await api.get(`/followers/following/${userId}`);
+    return response.data;
+  },
+
+  // Aceptar solicitud de seguimiento
+  acceptRequest: async (solicitudId) => {
+    const response = await api.patch(`/followers/solicitudes/${solicitudId}/aceptar`);
+    return response.data;
+  },
+
+  // Rechazar solicitud de seguimiento
+  rejectRequest: async (solicitudId) => {
+    const response = await api.patch(`/followers/solicitudes/${solicitudId}/rechazar`);
     return response.data;
   }
 };

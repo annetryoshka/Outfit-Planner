@@ -51,11 +51,47 @@ const followerController = {
         return res.status(401).json({ message: 'No autorizado' });
       }
 
-      const isFollowing = await followerService.isFollowing(followerId, followingId);
-      res.json({ isFollowing });
+      const followState = await followerService.isFollowing(followerId, followingId);
+      res.json({ followState });
     } catch (error) {
       console.error('Error al verificar seguimiento:', error);
       res.status(500).json({ message: 'Error al verificar seguimiento', error: error.message });
+    }
+  },
+
+  // Aceptar solicitud de seguimiento
+  async acceptRequest(req, res) {
+    try {
+      const userId = req.usuario?.id || req.user?.id;
+      const { solicitudId } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'No autorizado' });
+      }
+
+      const result = await followerService.acceptRequest(solicitudId, userId);
+      res.json(result);
+    } catch (error) {
+      console.error('Error al aceptar solicitud:', error);
+      res.status(500).json({ message: 'Error al aceptar solicitud', error: error.message });
+    }
+  },
+
+  // Rechazar solicitud de seguimiento
+  async rejectRequest(req, res) {
+    try {
+      const userId = req.usuario?.id || req.user?.id;
+      const { solicitudId } = req.params;
+
+      if (!userId) {
+        return res.status(401).json({ message: 'No autorizado' });
+      }
+
+      const result = await followerService.rejectRequest(solicitudId, userId);
+      res.json(result);
+    } catch (error) {
+      console.error('Error al rechazar solicitud:', error);
+      res.status(500).json({ message: 'Error al rechazar solicitud', error: error.message });
     }
   },
 

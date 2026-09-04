@@ -22,20 +22,20 @@ const User = {
 
   async findById(id) {
     const result = await pool.query(
-      'SELECT id, nombre, apellido, email, foto_perfil, fondo, ciudad, bio, es_privado, created_at FROM users WHERE id = $1',
+      'SELECT id, nombre, apellido, email, foto_perfil, fondo, ciudad, bio, es_privado, color_panel, created_at FROM users WHERE id = $1',
       [id]
     )
     return result.rows[0]
   },
 
   // 2. CORREGIDO: Ahora recibe, actualiza y retorna el 'apellido'
-  async update(id, { nombre, apellido, foto_perfil, ciudad, bio, es_privado, fondo }) {
+  async update(id, { nombre, apellido, foto_perfil, ciudad, bio, es_privado, fondo, color_panel }) {
     const result = await pool.query(
       `UPDATE users 
-       SET nombre=$1, apellido=$2, foto_perfil=$3, ciudad=$4, bio=$5, es_privado=$6, fondo=$7
-       WHERE id=$8 
-       RETURNING id, nombre, apellido, email, foto_perfil, ciudad, bio, es_privado, fondo, created_at`,
-      [nombre, apellido, foto_perfil, ciudad, bio, es_privado, fondo, id]
+       SET nombre=$1, apellido=$2, foto_perfil=$3, ciudad=$4, bio=$5, es_privado=$6, fondo=$7, color_panel=$8
+       WHERE id=$9 
+       RETURNING id, nombre, apellido, email, foto_perfil, ciudad, bio, es_privado, fondo, color_panel, created_at`,
+      [nombre, apellido, foto_perfil, ciudad, bio, es_privado, fondo, color_panel, id]
     )
     return result.rows[0]
   }

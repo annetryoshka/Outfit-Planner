@@ -7,6 +7,7 @@ const Sidebar = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const [currentUser, setCurrentUser] = useState(null)
+  const [shouldBlur, setShouldBlur] = useState(false)
 
   // Detectar cambios en autenticación (login/logout)
   useEffect(() => {
@@ -40,6 +41,29 @@ const Sidebar = () => {
     }
   }, [])
 
+  // Escuchar eventos de blur desde Profile.jsx
+  useEffect(() => {
+    const handleBlurChange = (e) => {
+      setShouldBlur(e.detail.blur)
+    }
+
+    window.addEventListener('modalBlurChange', handleBlurChange)
+
+    return () => {
+      window.removeEventListener('modalBlurChange', handleBlurChange)
+    }
+  }, [])
+
+  // Verificar localStorage periódicamente para sincronización instantánea
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const blurFromStorage = localStorage.getItem('modalBlur') === 'true'
+      setShouldBlur(blurFromStorage)
+    }, 10) // Verificar cada 10ms para máxima instantaneidad
+
+    return () => clearInterval(interval)
+  }, [])
+
   const activeItem = (() => {
     if (location.pathname === '/') return 'home'
     if (location.pathname === '/calendario') return 'calendar'
@@ -60,7 +84,7 @@ const Sidebar = () => {
   ]
 
   return (
-    <div className="fixed left-0 top-0 w-20 bg-[#c2e1f9] h-screen flex flex-col items-center pt-8 pb-8 gap-4 z-[60]">
+    <div className={`fixed left-0 top-0 w-20 bg-[#c2e1f9] h-screen flex flex-col items-center pt-8 pb-8 gap-4 z-[60] transition-all duration-300 ${shouldBlur ? 'blur-sm opacity-50' : ''}`}>
       {/* Navegación Vertical */}
       <nav className="flex flex-col gap-4">
         {menuItems.map((item) => {
