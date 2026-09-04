@@ -3,6 +3,7 @@ const cors = require('cors')
 const dotenv = require('dotenv')
 dotenv.config()
 
+
 const pool = require('./src/config/database')
 const authRoutes = require('./src/routes/auth')
 const authMiddleware = require('./src/middleware/auth')
@@ -10,6 +11,7 @@ const outfitRoutes = require('./src/routes/outfits')
 const climaRoutes = require('./src/routes/clima')
 const asistenteRoutes = require('./src/routes/asistente')
 const prendaRoutes = require('./src/routes/prenda')
+const { generalLimiter, authLimiter, aiLimiter } = require('./src/middleware/rateLimiter')
 const wishlistRoutes = require('./src/routes/wishlist')
 const tryonRoutes = require('./src/routes/tryon')
 const guardadoRoutes = require('./src/routes/guardado')
@@ -18,6 +20,7 @@ const followerRoutes = require('./src/routes/follower')
 const notificationRoutes = require('./src/routes/notification')  
 const { specs, swaggerUi } = require('./src/config/swagger')
 const passport = require('passport')
+const logger = require('./src/config/logger')
 
 const app = express()
 const PORT = process.env.PORT || 3000
@@ -34,7 +37,7 @@ app.use(express.json({ limit: '50mb' }));
 app.use(express.urlencoded({ limit: '50mb', extended: true }));
 require('./src/config/passport')
 app.use(passport.initialize())
-
+app.use(generalLimiter) 
 app.use('/api/auth', authRoutes)
 app.use('/api/prendas', prendaRoutes)
 app.use('/api/outfits', outfitRoutes)
@@ -57,15 +60,19 @@ app.get('/api/perfil', authMiddleware, (req, res) => {
 })
 
 app.use((err, req, res, next) => {
-  console.error("Error detectado en el servidor:", err.stack);
+  logger.error('Error en servidor:', {
+    message: err.message,
+    stack: err.stack,
+    path: req.path,
+    method: req.method
+  })
   res.status(500).json({
     success: false,
-    message: 'Hubo un problema interno en el servidor.',
-    error: process.env.NODE_ENV === 'development' ? err.message : {}
-  });
-});
+    message: 'Hubo un problema interno en el servidor.'
+  })
+})
 
 
 app.listen(PORT, () => {
-  console.log(`Servidor corriendo en http://localhost:${PORT}`)
+  logger.info(`Servidor corriendo en puerto ${PORT}`)
 })
