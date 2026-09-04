@@ -171,26 +171,25 @@ const HomePage = () => {
 
   // Efecto PRINCIPAL: Carga prendas públicas + las del usuario si hay token
   useEffect(() => {
-    // Feed global: no requiere token (endpoint /publicas es abierto)
     prendaService.obtenerPublicas()
       .then(data => setPrendasPublicas(Array.isArray(data) ? data : []))
       .catch(() => setPrendasPublicas([]))
+      .finally(() => setLoadingPrendas(false))
 
     // Mis prendas: solo si hay token
     const token = localStorage.getItem('token')
     if (!token) {
-      setLoadingPrendas(false)
-      setPrendasMensaje('login')
+      setMisPrendas([])
       return
     }
     
     prendaService.obtenerTodas()
-      .then(data => { setMisPrendas(Array.isArray(data) ? data : []); setPrendasMensaje(null) })
-      .catch(err => { setMisPrendas([]); setPrendasMensaje(err.response?.status === 401 ? 'login' : 'error') })
-      .finally(() => setLoadingPrendas(false))
+      .then(data => { setMisPrendas(Array.isArray(data) ? data : []) })
+      .catch(err => { 
+        setMisPrendas([])
+      })
   }, [])
 
-  // Efecto SECUNDARIO: Escucha cambios de autenticación
   useEffect(() => {
     const handleAuthChange = (event) => {
       if (event.detail.type === 'login') {
