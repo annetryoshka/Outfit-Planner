@@ -32,6 +32,6 @@ router.use(authMiddleware)
  *       400:
  *         description: Mensaje requerido
  * */
-router.post('/chat', asistenteController.chat)
+router.post('/chat', aiLimiter, asistenteController.chat)
 
 module.exports = router

@@ -2,6 +2,12 @@ const express = require('express')
 const router = express.Router()
 const climaController = require('../controllers/climaController')
 const authMiddleware = require('../middleware/auth')
+const { aiLimiter } = require('../middleware/rateLimiter')
+
+
+router.get('/coordenadas/outfit', aiLimiter, climaController.getOutfitByCoordenadas)
+router.get('/:ciudad/outfit', aiLimiter, climaController.getOutfitByClima)
+router.get('/outfit-inteligente', aiLimiter, climaController.outfitInteligente)
 
 router.use(authMiddleware)
 
