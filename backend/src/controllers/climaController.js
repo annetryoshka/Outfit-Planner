@@ -1,13 +1,17 @@
 const { getClima, getClimaPorCoordenadas } = require('../services/weatherService')
 const pool = require('../config/database')
+const logger = require('../config/logger')
 
 const climaController = {
   async obtenerClima(req, res) {
     try {
       const { ciudad } = req.params
+      logger.info('Consultando clima', { ciudad })
       const clima = await getClima(ciudad)
+      logger.info('Clima obtenido exitosamente', { ciudad, temperatura: clima.temperatura })
       res.json(clima)
     } catch (error) {
+      logger.error('Error al obtener clima', { ciudad: req.params.ciudad, error: error.message })
       res.status(500).json({ message: error.message })
     }
   },
@@ -15,6 +19,7 @@ const climaController = {
   async outfitPorClima(req, res) {
     try {
       const { ciudad } = req.params
+      logger.info('Generando outfit por clima', { ciudad })
       const clima = await getClima(ciudad)
       const sugerencias = {
         muy_frio: {
@@ -38,8 +43,10 @@ const climaController = {
           prendas: ['ropa muy ligera', 'shorts', 'sandalias', 'gafas de sol', 'sombrero']
         }
       }
+      logger.info('Outfit por clima generado exitosamente', { ciudad, clasificacion: clima.clasificacion })
       res.json({ clima, sugerencia: sugerencias[clima.clasificacion] })
     } catch (error) {
+      logger.error('Error al generar outfit por clima', { ciudad: req.params.ciudad, error: error.message })
       res.status(500).json({ message: error.message })
     }
   },
@@ -47,7 +54,7 @@ const climaController = {
   async outfitPorCoordenadas(req, res) {
     try {
       const { lat, lon } = req.query
-      console.log('Coordenadas recibidas:', lat, lon)
+      logger.info('Generando outfit por coordenadas', { lat, lon })
       const clima = await getClimaPorCoordenadas(lat, lon)
       const sugerencias = {
         muy_frio: {
@@ -71,8 +78,10 @@ const climaController = {
           prendas: ['ropa muy ligera', 'shorts', 'sandalias', 'gafas de sol', 'sombrero']
         }
       }
+      logger.info('Outfit por coordenadas generado exitosamente', { lat, lon, ciudad: clima.ciudad })
       res.json({ clima, sugerencia: sugerencias[clima.clasificacion] })
     } catch (error) {
+      logger.error('Error al generar outfit por coordenadas', { lat: req.query.lat, lon: req.query.lon, error: error.message })
       res.status(500).json({ message: error.message })
     }
   },
@@ -83,10 +92,13 @@ const climaController = {
       if (!apiKey) throw new Error('GEMINI_API_KEY no configurada en .env')
 
       const { lat, lon } = req.query
+      logger.info('Generando outfit inteligente con IA', { lat, lon })
+      
       const clima = await getClimaPorCoordenadas(lat, lon)
 
       const user_id = req.usuario?.id || req.user?.id;
       if (!user_id) {
+        logger.warn('Intento de outfit inteligente sin autenticación')
         return res.status(401).json({ message: 'Falta token de sesión.' });
       }
 
@@ -108,6 +120,8 @@ const climaController = {
       )
 
       const todasLasPrendas = result.rows
+      logger.info('Prendas disponibles para outfit inteligente', { usuarioId: user_id, cantidad: todasLasPrendas.length, temporada })
+      
       const outfit = {}
 
       const mensajes = {
@@ -122,6 +136,8 @@ const climaController = {
         let decisionIA;
         
         try {
+          logger.info('Consultando Gemini API para outfit inteligente', { usuarioId: user_id })
+          
           // 📡 Intento de conectar con Gemini
           const response = await fetch(
             `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${apiKey}`,
@@ -159,10 +175,12 @@ const climaController = {
           let textoIA = data.candidates[0].content.parts[0].text;
           textoIA = textoIA.replace(/```json/ig, '').replace(/```/g, '').trim();
           decisionIA = JSON.parse(textoIA);
+          
+          logger.info('Outfit inteligente generado por Gemini exitosamente', { usuarioId: user_id, prendas: decisionIA.idsSeleccionados.length })
 
         } catch (geminiError) {
           // 🛡️ EL ESCUDO: Si Gemini está saturado o falla, el backend autogenera la respuesta sin caerse
-          console.warn("⚠️ [PinWand Respaldo] Gemini fuera de servicio temporalmente. Armando outfit con algoritmo local.");
+          logger.warn('Gemini fuera de servicio, usando algoritmo respaldo', { usuarioId: user_id, error: geminiError.message })
           
           const idsSugeridos = [];
           const tiposVistos = new Set();
@@ -179,6 +197,8 @@ const climaController = {
             idsSeleccionados: idsSugeridos,
             consejoEstilo: "Armamos este outfit equilibrado con tus prendas disponibles mientras el motor de Inteligencia Artificial se reestablece."
           };
+          
+          logger.info('Outfit generado con algoritmo respaldo', { usuarioId: user_id, prendas: idsSugeridos.length })
         }
 
         // Procesamos las prendas resultantes (ya sea de Gemini o de nuestro plan de respaldo)
@@ -199,6 +219,7 @@ const climaController = {
         });
       }
 
+      logger.info('Usuario sin prendas en inventario para outfit inteligente', { usuarioId: user_id, temporada })
       res.json({
         clima,
         outfit_del_dia: {},
@@ -208,7 +229,7 @@ const climaController = {
       })
 
     } catch (error) {
-      console.error('Error al generar outfit inteligente:', error)
+      logger.error('Error al generar outfit inteligente', { usuarioId: req.usuario?.id || req.user?.id, error: error.message, stack: error.stack })
       res.status(500).json({ message: error.message })
     }
   }

@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const asistenteController = require('../controllers/asistentController')
 const authMiddleware = require('../middleware/auth')
+const { aiLimiter } = require('../middleware/rateLimiter')
 
 router.use(authMiddleware)
 
@@ -32,6 +33,6 @@ router.use(authMiddleware)
  *       400:
  *         description: Mensaje requerido
  * */
-router.post('/chat', asistenteController.chat)
+router.post('/chat', aiLimiter, asistenteController.chat)
 
 module.exports = router

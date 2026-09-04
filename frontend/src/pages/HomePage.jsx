@@ -169,23 +169,44 @@ const HomePage = () => {
       .finally(() => setLoadingClima(false))
   }, [])
 
+  // Efecto PRINCIPAL: Carga prendas públicas + las del usuario si hay token
   useEffect(() => {
-    // Feed global: no requiere token (endpoint /publicas es abierto)
     prendaService.obtenerPublicas()
       .then(data => setPrendasPublicas(Array.isArray(data) ? data : []))
       .catch(() => setPrendasPublicas([]))
+      .finally(() => setLoadingPrendas(false))
 
     // Mis prendas: solo si hay token
     const token = localStorage.getItem('token')
     if (!token) {
-      setLoadingPrendas(false)
-      setPrendasMensaje('login')
+      setMisPrendas([])
       return
     }
+    
     prendaService.obtenerTodas()
-      .then(data => { setMisPrendas(Array.isArray(data) ? data : []); setPrendasMensaje(null) })
-      .catch(err => { setMisPrendas([]); setPrendasMensaje(err.response?.status === 401 ? 'login' : 'error') })
-      .finally(() => setLoadingPrendas(false))
+      .then(data => { setMisPrendas(Array.isArray(data) ? data : []) })
+      .catch(err => { 
+        setMisPrendas([])
+      })
+  }, [])
+
+  useEffect(() => {
+    const handleAuthChange = (event) => {
+      if (event.detail.type === 'login') {
+        // Recarga las prendas después del login
+        prendaService.obtenerTodas()
+          .then(data => { setMisPrendas(Array.isArray(data) ? data : []); setPrendasMensaje(null) })
+          .catch(err => { setMisPrendas([]); setPrendasMensaje(err.response?.status === 401 ? 'login' : 'error') })
+          .finally(() => setLoadingPrendas(false))
+      }
+      if (event.detail.type === 'logout') {
+        setPrendasMensaje('login')
+        setMisPrendas([])
+      }
+    }
+
+    window.addEventListener('authChange', handleAuthChange)
+    return () => window.removeEventListener('authChange', handleAuthChange)
   }, [])
 
   useEffect(() => {
@@ -215,40 +236,36 @@ const HomePage = () => {
 
   // ── Lógica del chat
   const enviarMensaje = async (textoAlternativo) => {
-  const mensajeAEnviar = textoAlternativo || input;
-  if (!mensajeAEnviar.trim() || loadingChat) return;
+    const mensajeAEnviar = textoAlternativo || input;
+    if (!mensajeAEnviar.trim() || loadingChat) return;
 
-  const nuevoMensajeUsuario = { role: 'user', content: mensajeAEnviar };
-  
+    const nuevoMensajeUsuario = { role: 'user', content: mensajeAEnviar };
+    
+    setMensajes((prev) => [...prev, nuevoMensajeUsuario]);
+    if (!textoAlternativo) setInput('');
+    
+    setLoadingChat(true);
 
-  setMensajes((prev) => [...prev, nuevoMensajeUsuario]);
-  if (!textoAlternativo) setInput('');
-  
-  setLoadingChat(true);
+    try {
+      const respuestaTexto = await asistenteService.chat(mensajeAEnviar, []);
 
-  try {
-    // 3. Llamamos al servicio (pasa tus prendas reales aquí si tienes el estado)
-    const respuestaTexto = await asistenteService.chat(mensajeAEnviar, []);
+      const nuevoMensajeIA = { 
+        role: 'assistant', 
+        content: respuestaTexto
+      };
 
-    // 4. Creamos el objeto de respuesta de la IA usando '.content' para que tu JSX lo lea bien
-    const nuevoMensajeIA = { 
-      role: 'assistant', 
-      content: respuestaTexto // Aseguramos que se guarde en .content
-    };
+      setMensajes((prev) => [...prev, nuevoMensajeIA]);
 
-    // Agregamos la respuesta al estado
-    setMensajes((prev) => [...prev, nuevoMensajeIA]);
-
-  } catch (error) {
-    console.error("Error al enviar mensaje al asistente:", error);
-    setMensajes((prev) => [
-      ...prev, 
-      { role: 'assistant', content: "Lo siento, hubo un problema al conectar con el asistente." }
-    ]);
-  } finally {
-    setLoadingChat(false);
-  }
-};
+    } catch (error) {
+      console.error("Error al enviar mensaje al asistente:", error);
+      setMensajes((prev) => [
+        ...prev, 
+        { role: 'assistant', content: "Lo siento, hubo un problema al conectar con el asistente." }
+      ]);
+    } finally {
+      setLoadingChat(false);
+    }
+  };
 
   const toggleGuardar = async (e, prendaId) => {
     e.stopPropagation()
@@ -331,7 +348,6 @@ const HomePage = () => {
     const n = (s) => (s || '').toLowerCase().trim()
 
     // Diccionario de deseos por rango de temperatura
-    // (NO incluye tipos genéricos: superior/inferior/calzado/accesorio/otros)
     const DESEOS = temp < 15
       ? {
           categorias: ['abrigo', 'chaquetas', 'bufanda', 'guantes', 'pantalón', 'jeans'],
@@ -396,8 +412,6 @@ const HomePage = () => {
   }, [clima, misPrendas, prendasPublicas])
 
   // Seleccion de fuente segun pestana activa
-  // 'todos'       -> prendasPublicas (viene de GET /prendas/publicas — todos los usuarios)
-  // 'mis-prendas' -> misPrendas     (viene de GET /prendas          — solo el usuario logueado)
   const prendasPorTab = activeTab === 'todos' ? prendasPublicas : misPrendas
 
   // Filtro acumulativo AND: cada tag seleccionado debe estar en algún campo de la prenda

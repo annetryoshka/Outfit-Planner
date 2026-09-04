@@ -13,6 +13,35 @@ import tryonService from '../services/tryonService';
 import followerService from '../services/followerService';
 import notificationService from '../services/notificationService';
 
+// Los timestamps "without time zone" de Postgres llegan sin 'Z' (ej. "2026-09-03T14:32:00"),
+// pero en realidad están guardados en UTC. Sin la 'Z', el navegador los toma como si fueran
+// hora LOCAL y desfasa la hora mostrada según el huso horario del usuario. Se la agregamos
+// nosotros si no viene incluida.
+const parseUTCDate = (dateString) => {
+  if (!dateString) return null;
+  const yaTieneZona = /Z$|[+-]\d{2}:?\d{2}$/.test(dateString);
+  return new Date(yaTieneZona ? dateString : `${dateString}Z`);
+};
+
+// Función para calcular el color de texto de contraste basado en la luminancia
+const getContrastText = (hexColor) => {
+  if (!hexColor) return '#111827';
+  
+  // Convertir hex a RGB
+  const hex = hexColor.replace('#', '');
+  const r = parseInt(hex.substr(0, 2), 16);
+  const g = parseInt(hex.substr(2, 2), 16);
+  const b = parseInt(hex.substr(4, 2), 16);
+  
+  // Calcular luminancia relativa
+  const luminancia = 0.299 * r + 0.587 * g + 0.114 * b;
+  
+  // Si luminancia > 150, fondo es claro → texto oscuro, si no → texto claro
+  return luminancia > 150 ? '#111827' : '#ffffff';
+};
+
+const COLORES_PANEL = ['#ffffff', '#000000', '#f6ccfa', '#c2e1f9', '#fafbad', '#fde8e8', '#d4f1d4', '#3D2B1F'];
+
 const Profile = () => {
   const [user, setUser] = useState(null);
   const [isEditing, setIsEditing] = useState(false);
@@ -38,7 +67,7 @@ const Profile = () => {
   // Estados para seguidores
   const [followersCount, setFollowersCount] = useState(0);
   const [followingCount, setFollowingCount] = useState(0);
-  const [isFollowing, setIsFollowing] = useState(false);
+  const [followState, setFollowState] = useState('ninguno'); // 'ninguno' | 'pendiente' | 'aceptado'
   const [followingLoading, setFollowingLoading] = useState(false);
   
   // Estados para modales de seguidores
@@ -109,11 +138,11 @@ const Profile = () => {
       // Ruta /perfil/:userId — perfil ajeno, cargar desde Supabase
       const loadVisitedProfile = async () => {
         const { data, error } = await supabase
-          .from('users') // tabla correcta según el schema
-          .select('id, nombre, apellido, foto_perfil, fondo, ciudad, bio, es_privado, created_at')
-          // ⚠️ No seleccionamos email ni password por seguridad
-          .eq('id', userId)
-          .single();
+  .from('users') // tabla correcta según el schema
+  .select('id, nombre, apellido, foto_perfil, fondo, ciudad, bio, es_privado, created_at, color_panel')
+  // ⚠️ No seleccionamos email ni password por seguridad
+  .eq('id', userId)
+  .single();
         if (error || !data) {
           console.error('No se encontró el perfil:', error?.message);
           // Mostramos un estado vacío en vez de redirigir
@@ -139,8 +168,8 @@ const Profile = () => {
 
         // Si no es el dueño, verificar si el usuario actual sigue a este perfil
         if (!isOwner && currentLoggedUser) {
-          const following = await followerService.checkFollowing(user.id);
-          setIsFollowing(following);
+          const state = await followerService.checkFollowing(user.id);
+          setFollowState(state);
         }
       } catch (error) {
         console.error('Error al cargar datos de seguidores:', error);
@@ -199,6 +228,14 @@ const Profile = () => {
     let cancelled = false;
     setWardrobeLoading(true);
 
+    // Si es perfil privado, no es dueño, y no está aceptado, no cargar contenido
+    if (!isOwner && user.es_privado && followState !== 'aceptado') {
+      setPrendas([]);
+      setOutfits([]);
+      setWardrobeLoading(false);
+      return;
+    }
+
     if (isOwner) {
       // Para el dueño usamos los servicios que ya filtran por sesión
       Promise.all([
@@ -210,6 +247,7 @@ const Profile = () => {
           setPrendas(Array.isArray(p) ? p : []);
           setOutfits(Array.isArray(o) ? o : []);
         })
+        .catch(() => { if (!cancelled) { setPrendas([]); setOutfits([]); } })
         .finally(() => { if (!cancelled) setWardrobeLoading(false); });
     } else {
       // Para visitantes: solo prendas públicas y outfits públicos del usuario visitado
@@ -227,7 +265,7 @@ const Profile = () => {
     }
 
     return () => { cancelled = true; };
-  }, [user?.id, isOwner]);
+  }, [user?.id, isOwner, followState, user?.es_privado]);
 
   // Carga guardados — solo para el dueño
   useEffect(() => {
@@ -276,6 +314,15 @@ const Profile = () => {
     return () => { cancelled = true; };
   }, [armarioTab, user?.id, isOwner]);
 
+  // Disparar evento de blur cuando se abren/cierran modales de seguidores
+  useEffect(() => {
+    const shouldBlur = showFollowersModal || showFollowingModal;
+    // Usar localStorage para sincronización inmediata
+    localStorage.setItem('modalBlur', shouldBlur ? 'true' : 'false');
+    // También disparar evento para compatibilidad
+    window.dispatchEvent(new CustomEvent('modalBlurChange', { detail: { blur: shouldBlur } }));
+  }, [showFollowersModal, showFollowingModal]);
+
   const eliminarPrueba = async (id) => {
     if (!confirm('¿Eliminar esta prueba virtual?')) return;
     try {
@@ -291,14 +338,23 @@ const Profile = () => {
     if (followingLoading || !user?.id) return;
     setFollowingLoading(true);
     try {
-      if (isFollowing) {
+      if (followState === 'aceptado') {
+        // Dejar de seguir
         await followerService.unfollow(user.id);
-        setIsFollowing(false);
+        setFollowState('ninguno');
         setFollowersCount(prev => Math.max(0, prev - 1));
+      } else if (followState === 'pendiente') {
+        // Cancelar solicitud
+        await followerService.unfollow(user.id);
+        setFollowState('ninguno');
       } else {
+        // Seguir o enviar solicitud
         await followerService.follow(user.id);
-        setIsFollowing(true);
-        setFollowersCount(prev => prev + 1);
+        const newState = user.es_privado ? 'pendiente' : 'aceptado';
+        setFollowState(newState);
+        if (newState === 'aceptado') {
+          setFollowersCount(prev => prev + 1);
+        }
       }
     } catch (error) {
       console.error('Error al cambiar seguimiento:', error);
@@ -364,19 +420,55 @@ const Profile = () => {
     }
   };
 
-  const handleSidePanelFollowToggle = async (targetUserId, isFollowing) => {
+  const handleSidePanelFollowToggle = async (targetUserId, currentState) => {
     try {
-      if (isFollowing) {
+      if (currentState === 'aceptado') {
         await followerService.unfollow(targetUserId);
-        setPopularUsers(prev => prev.map(u => u.id === targetUserId ? { ...u, is_following: false } : u));
-        setSearchResults(prev => prev.map(u => u.id === targetUserId ? { ...u, is_following: false } : u));
+        setPopularUsers(prev => prev.map(u => u.id === targetUserId ? { ...u, follow_state: 'ninguno' } : u));
+        setSearchResults(prev => prev.map(u => u.id === targetUserId ? { ...u, follow_state: 'ninguno' } : u));
+      } else if (currentState === 'pendiente') {
+        await followerService.unfollow(targetUserId);
+        setPopularUsers(prev => prev.map(u => u.id === targetUserId ? { ...u, follow_state: 'ninguno' } : u));
+        setSearchResults(prev => prev.map(u => u.id === targetUserId ? { ...u, follow_state: 'ninguno' } : u));
       } else {
         await followerService.follow(targetUserId);
-        setPopularUsers(prev => prev.map(u => u.id === targetUserId ? { ...u, is_following: true } : u));
-        setSearchResults(prev => prev.map(u => u.id === targetUserId ? { ...u, is_following: true } : u));
+        const newState = await followerService.checkFollowing(targetUserId);
+        setPopularUsers(prev => prev.map(u => u.id === targetUserId ? { ...u, follow_state: newState } : u));
+        setSearchResults(prev => prev.map(u => u.id === targetUserId ? { ...u, follow_state: newState } : u));
       }
     } catch (error) {
       console.error('Error al cambiar seguimiento:', error);
+    }
+  };
+
+  const handleAcceptRequest = async (solicitudId) => {
+    try {
+      await followerService.acceptRequest(solicitudId);
+      // Eliminar la notificación de la lista
+      setNotifications(prev => prev.filter(n => n.seguidor_id !== solicitudId));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      // Actualizar contadores de seguidores
+      if (user?.id) {
+        const counts = await followerService.getCounts(user.id);
+        setFollowersCount(counts.followersCount);
+      }
+      setStatusMessage({ type: 'success', text: 'Solicitud aceptada' });
+    } catch (error) {
+      console.error('Error al aceptar solicitud:', error);
+      setStatusMessage({ type: 'error', text: 'Error al aceptar solicitud' });
+    }
+  };
+
+  const handleRejectRequest = async (solicitudId) => {
+    try {
+      await followerService.rejectRequest(solicitudId);
+      // Eliminar la notificación de la lista
+      setNotifications(prev => prev.filter(n => n.seguidor_id !== solicitudId));
+      setUnreadCount(prev => Math.max(0, prev - 1));
+      setStatusMessage({ type: 'success', text: 'Solicitud rechazada' });
+    } catch (error) {
+      console.error('Error al rechazar solicitud:', error);
+      setStatusMessage({ type: 'error', text: 'Error al rechazar solicitud' });
     }
   };
 
@@ -490,19 +582,21 @@ const Profile = () => {
   });
 
   // Si es visitante y no se encontró el perfil, mostrar mensaje amigable
-  if (!user && userId) return (
-    <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-gray-500">
-      <p className="text-lg font-semibold">No se encontró este perfil.</p>
-      <button onClick={() => navigate("/")} className="px-5 py-2 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors">Volver al inicio</button>
-    </div>
-  );
+  
+if (!user && userId) return (
+  <div className="min-h-screen flex flex-col items-center justify-center gap-4 text-gray-500">
+    <div className="w-8 h-8 border-2 border-morado border-t-transparent rounded-full animate-spin" />
+    <p className="text-lg font-semibold">Cargando...</p>
+    <button onClick={() => navigate("/")} className="px-5 py-2 bg-gray-900 text-white rounded-xl text-sm font-bold hover:bg-gray-800 transition-colors">Volver al inicio</button>
+  </div>
+);
 
   if (!user) return null;
 
   const nombreUsuario = user.nombre || '';
   const apellidoUsuario = user.apellido || '';
 
-  // ✅ Tabs que ve el visitante (no tiene acceso a guardados ni pruebas privadas)
+  //Tabs que ve el visitante (no tiene acceso a guardados ni pruebas privadas)
   const tabsDisponibles = isOwner
     ? [
         { id: 'armario',   label: 'Mi Armario Virtual' },
@@ -569,7 +663,7 @@ const Profile = () => {
             backgroundSize: 'cover'
           }}
         >
-          {/* ✅ Botón cerrar sesión — solo para el dueño */}
+          {/*  Botón cerrar sesión — solo para el dueño */}
           {isOwner && (
             <button 
               onClick={handleLogout}
@@ -587,7 +681,7 @@ const Profile = () => {
             </>
           )}
 
-          {/* ✅ Overlay editar portada — solo para el dueño en modo edición */}
+          {/*  Overlay editar portada — solo para el dueño en modo edición */}
           {isOwner && isEditing && (
             <div 
               onClick={(e) => { e.stopPropagation(); backgroundInputRef.current.click(); }}
@@ -605,9 +699,12 @@ const Profile = () => {
         </div>
 
         {/* INFORMACIÓN DEL USUARIO */}
-        <div className="px-8 pb-6 flex flex-col items-center md:items-start gap-4 border-b border-gray-100 relative bg-white">
+        <div 
+          className="px-8 pb-6 flex flex-col items-center md:items-start gap-4 border-b border-gray-100 relative transition-colors duration-300"
+          style={{ backgroundColor: (isEditing ? formData : user).color_panel || '#ffffff' }}
+        >
           
-          {/* ✅ Botón editar — solo para el dueño */}
+          {/*  Botón editar — solo para el dueño */}
           {isOwner && !isEditing && (
             <button 
               onClick={() => setIsEditing(true)}
@@ -632,7 +729,7 @@ const Profile = () => {
                     <User className="w-14 h-14 text-gray-300" />
                   </div>
                 )}
-                {/* ✅ Overlay cambiar avatar — solo para el dueño en modo edición */}
+                {/*  Overlay cambiar avatar — solo para el dueño en modo edición */}
                 {isOwner && isEditing && (
                   <div 
                     onClick={() => fileInputRef.current.click()}
@@ -646,7 +743,7 @@ const Profile = () => {
             </div>
 
             <div className="w-full space-y-4 text-center md:text-left">
-              {/* ✅ Formulario de edición — solo para el dueño */}
+              {/*  Formulario de edición — solo para el dueño */}
               {isOwner && isEditing ? (
                 <form onSubmit={handleSubmit} className="space-y-3 max-w-xl mx-auto md:mx-0">
                   <div className="grid grid-cols-2 gap-3">
@@ -660,7 +757,54 @@ const Profile = () => {
                     <label htmlFor="es_privado" className="text-sm font-medium text-gray-500">Habilitar cuenta privada</label>
                   </div>
 
-                  {/* 🔒 Sección de contraseña — Agregada de forma ultra segura arriba de los botones */}
+                  {/* Sección de color del panel */}
+                  <div className="pt-3 border-t border-gray-100 space-y-2">
+                    <p className="text-xs font-bold text-morado uppercase tracking-wider">
+                      Color de tu panel
+                    </p>
+                    <div className="flex items-center gap-2">
+                      {/* Colores predeterminados */}
+                      {COLORES_PANEL.map(color => (
+                        <button
+                          key={color}
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, color_panel: color }))}
+                          className={`w-7 h-7 rounded-lg border-2 flex-shrink-0 transition-all duration-200 ${
+                            (formData.color_panel || '#ffffff') === color
+                              ? 'border-morado scale-110'
+                              : 'border-gray-200 hover:border-morado/50'
+                          }`}
+                          style={{ backgroundColor: color }}
+                          title={color}
+                        />
+                      ))}
+                      
+                      {/* Separador */}
+                      <div className="w-px h-6 bg-gray-200 mx-1" />
+                      
+                      {/* Paleta personalizada */}
+                      <div className="relative w-7 h-7 flex-shrink-0">
+                        <input
+                          type="color"
+                          value={formData.color_panel || '#ffffff'}
+                          onChange={(e) => setFormData(prev => ({ ...prev, color_panel: e.target.value }))}
+                          className="absolute inset-0 w-full h-full rounded-lg cursor-pointer opacity-0"
+                          title="Color personalizado"
+                        />
+                        <div
+                          className="w-7 h-7 rounded-lg border-2 border-dashed border-gray-300 hover:border-morado transition-colors flex items-center justify-center overflow-hidden"
+                          style={{
+                            backgroundColor: formData.color_panel || '#ffffff',
+                            backgroundImage: 'conic-gradient(red, yellow, lime, aqua, blue, magenta, red)'
+                          }}
+                        >
+                          <div className="w-5 h-5 rounded" style={{ backgroundColor: formData.color_panel || '#ffffff' }} />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/*  Sección de contraseña — Agregada de forma ultra segura arriba de los botones */}
                   <div className="pt-3 border-t border-gray-100 space-y-2">
                     <p className="text-xs font-bold text-morado uppercase tracking-wider">
                       Cambiar Contraseña (Opcional)
@@ -696,10 +840,18 @@ const Profile = () => {
                 <>
                   <div className="flex flex-col md:flex-row md:items-start md:justify-between gap-2 w-full">
                     <div>
-                      <h2 className="text-3xl font-black text-gray-900 tracking-tight">{nombreUsuario} {apellidoUsuario}</h2>
+                      <h2 
+                        className="text-3xl font-black tracking-tight"
+                        style={{ color: getContrastText((isEditing ? formData : user).color_panel || '#ffffff') }}
+                      >
+                        {nombreUsuario} {apellidoUsuario}
+                      </h2>
                       {isOwner && (
-                        <p className="text-sm font-semibold text-gray-400 flex items-center justify-center md:justify-start gap-1.5 mt-1">
-                          <Mail className="w-4 h-4 text-gray-300" /> {user.email}
+                        <p 
+                          className="text-sm font-semibold flex items-center justify-center md:justify-start gap-1.5 mt-1"
+                          style={{ color: getContrastText((isEditing ? formData : user).color_panel || '#ffffff') }}
+                        >
+                          <Mail className="w-4 h-4" style={{ color: getContrastText((isEditing ? formData : user).color_panel || '#ffffff') }} /> {user.email}
                         </p>
                       )}
                     </div>
@@ -719,8 +871,14 @@ const Profile = () => {
                   </div>
 
                   {/* Bio sin recuadro */}
-                  <p className="text-base text-gray-600 max-w-2xl font-medium leading-relaxed mx-auto md:mx-0 text-left flex items-start gap-2">
-                    <Lightbulb className="w-5 h-5 text-morado flex-shrink-0 mt-0.5" />
+                  <p 
+                    className="text-base max-w-2xl font-medium leading-relaxed mx-auto md:mx-0 text-left flex items-start gap-2"
+                    style={{ color: getContrastText((isEditing ? formData : user).color_panel || '#ffffff') }}
+                  >
+                    <Lightbulb 
+                      className="w-5 h-5 flex-shrink-0 mt-0.5"
+                      style={{ color: getContrastText((isEditing ? formData : user).color_panel || '#ffffff') === '#ffffff' ? '#9f8aef' : '#ffffff' }}
+                    />
                     <span>{user.bio || 'Configurando combinaciones perfectas desde su armario.'}</span>
                   </p>
 
@@ -741,12 +899,17 @@ const Profile = () => {
                         onClick={handleFollowToggle}
                         disabled={followingLoading}
                         className={`px-5 py-2 rounded-xl font-bold text-sm transition-colors ${
-                          isFollowing
+                          followState === 'aceptado'
                             ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+                            : followState === 'pendiente'
+                            ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
                             : 'bg-[#9f8aef] text-white hover:bg-[#9f8aef]/80'
                         }`}
                       >
-                        {followingLoading ? '...' : isFollowing ? 'Siguiendo' : 'Seguir'}
+                        {followingLoading ? '...' : 
+                         followState === 'aceptado' ? 'Siguiendo' :
+                         followState === 'pendiente' ? 'Solicitud enviada' :
+                         user.es_privado ? 'Enviar solicitud' : 'Seguir'}
                       </button>
                     )}
                   </div>
@@ -757,7 +920,7 @@ const Profile = () => {
         </div>
 
         {/* PESTAÑAS */}
-        <div className="flex justify-center px-8 border-b border-gray-100 bg-white w-full">
+<div className="flex justify-center px-8 border-b border-gray-100 bg-white w-full">
           {tabsDisponibles.map((tab) => (
             <button
               key={tab.id}
@@ -775,10 +938,27 @@ const Profile = () => {
         </div>
 
         {/* CONTENIDO */}
-        <div className="p-8 bg-slate-50/50 flex-1">
+<div 
+  className="p-8 flex-1 transition-colors duration-300"
+  style={{ backgroundColor: (isEditing ? formData : user).color_panel || '#ffffff' }}
+>
+          {/* Candado visual para cuentas privadas */}
+          {!isOwner && user.es_privado && followState !== 'aceptado' && (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <div className="w-20 h-20 bg-gray-100 rounded-full flex items-center justify-center mb-4">
+                <Lock className="w-10 h-10 text-gray-400" />
+              </div>
+              <h3 className="text-xl font-bold text-gray-900 mb-2">Esta cuenta es privada</h3>
+              <p className="text-gray-500 max-w-md">
+                {followState === 'pendiente' 
+                  ? 'Tu solicitud de seguimiento está pendiente de aprobación.'
+                  : 'Envía una solicitud para ver su armario y sus outfits.'}
+              </p>
+            </div>
+          )}
 
           {/* TAB: ARMARIO */}
-          {armarioTab === 'armario' && (
+          {armarioTab === 'armario' && (isOwner || !user.es_privado || followState === 'aceptado') && (
             <>
               <div className="w-full max-w-4xl mx-auto mb-8 bg-white p-5 rounded-2xl border border-gray-100 shadow-sm flex flex-col items-center gap-4">
                 <div className="flex flex-wrap items-center justify-center gap-3 w-full">
@@ -1002,7 +1182,7 @@ const Profile = () => {
                 </div>
               ) : pruebas.length === 0 ? (
                 <div className="bg-white border border-dashed border-gray-200 rounded-2xl py-12 px-4 text-center shadow-sm max-w-md mx-auto">
-                  <p className="text-3xl mb-2">👗</p>
+                  
                   <p className="text-gray-400 text-sm font-medium">No tienes pruebas virtuales aún</p>
                   <p className="text-xs text-gray-300 mt-1">Prueba cómo te quedaría una prenda</p>
                 </div>
@@ -1104,7 +1284,7 @@ const Profile = () => {
 
         {/* Columna Derecha - Panel Lateral (solo cuando isOwner === true) */}
         {isOwner && (
-          <div className="w-full lg:w-80 lg:min-w-[320px] bg-gray-50 lg:bg-white flex flex-col border-t lg:border-t-0 lg:border-l border-gray-100 lg:sticky lg:top-0 lg:self-start lg:max-h-screen">
+          <div className={`w-full lg:w-80 lg:min-w-[320px] bg-gray-50 lg:bg-white flex flex-col border-t lg:border-t-0 lg:border-l border-gray-100 lg:sticky lg:top-0 lg:self-start lg:max-h-screen transition-all duration-300 ${(showFollowersModal || showFollowingModal) ? 'blur-sm' : ''}`}>
             {/* Pestañas del panel lateral */}
             <div className="flex border-b border-gray-100 bg-white">
               <button
@@ -1182,14 +1362,18 @@ const Profile = () => {
       <p className="text-xs text-gray-400">{u.totalLikes} likes</p>
     </div>
     <button
-      onClick={() => handleSidePanelFollowToggle(u.id, u.is_following)}
+      onClick={() => handleSidePanelFollowToggle(u.id, u.follow_state)}
       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-        u.is_following
+        u.follow_state === 'aceptado'
           ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          : u.follow_state === 'pendiente'
+          ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
           : 'bg-[#9f8aef] text-white hover:bg-[#9f8aef]/80'
       }`}
     >
-      {u.is_following ? 'Siguiendo' : 'Seguir'}
+      {u.follow_state === 'aceptado' ? 'Siguiendo' :
+       u.follow_state === 'pendiente' ? 'Solicitud enviada' :
+       u.es_privado ? 'Enviar solicitud' : 'Seguir'}
     </button>
   </div>
 ))
@@ -1230,14 +1414,18 @@ const Profile = () => {
       <p className="text-xs text-gray-400">{u.totalLikes} likes</p>
     </div>
     <button
-      onClick={() => handleSidePanelFollowToggle(u.id, u.is_following)}
+      onClick={() => handleSidePanelFollowToggle(u.id, u.follow_state)}
       className={`px-3 py-1.5 rounded-lg text-xs font-bold transition-colors ${
-        u.is_following
+        u.follow_state === 'aceptado'
           ? 'bg-gray-100 text-gray-700 hover:bg-gray-200'
+          : u.follow_state === 'pendiente'
+          ? 'bg-yellow-100 text-yellow-700 hover:bg-yellow-200'
           : 'bg-[#9f8aef] text-white hover:bg-[#9f8aef]/80'
       }`}
     >
-      {u.is_following ? 'Siguiendo' : 'Seguir'}
+      {u.follow_state === 'aceptado' ? 'Siguiendo' :
+       u.follow_state === 'pendiente' ? 'Solicitud enviada' :
+       u.es_privado ? 'Enviar solicitud' : 'Seguir'}
     </button>
   </div>
 ))
@@ -1287,17 +1475,19 @@ const Profile = () => {
 
       <div className="flex-1 min-w-0">
         <p className="text-sm text-gray-900">
-          {/* Nombre clickeable → va al perfil */}
           <span
             onClick={() => notif.users?.id && navigate(`/perfil/${notif.users.id}`)}
             className="font-semibold cursor-pointer hover:text-[#9f8aef] transition-colors"
           >
             {notif.users?.nombre} {notif.users?.apellido}
           </span>
-          {notif.tipo === 'seguidor' ? ' comenzó a seguirte' : ' le gustó tu prenda'}
+          {notif.tipo === 'seguidor' && ' comenzó a seguirte'}
+          {notif.tipo === 'like' && ' le gustó tu prenda'}
+          {notif.tipo === 'solicitud_seguimiento' && ' quiere seguirte'}
+          {notif.tipo === 'solicitud_aceptada' && ' aceptó tu solicitud de seguimiento'}
         </p>
 
-        {/* Imagen del pin — clickeable → va al pin */}
+        {/* Imagen del pin — clickeable → va al pin (solo para likes) */}
         {notif.tipo === 'like' && notif.prendas && (
           <div
             onClick={() => notif.prendas?.id && navigate(`/prenda/${notif.prendas.id}`)}
@@ -1316,8 +1506,26 @@ const Profile = () => {
           </div>
         )}
 
+        {/* Botones Aceptar/Rechazar — solo para solicitudes de seguimiento pendientes */}
+        {notif.tipo === 'solicitud_seguimiento' && (
+          <div className="flex gap-2 mt-2">
+            <button
+              onClick={() => handleAcceptRequest(notif.seguidor_id ?? notif.id)}
+              className="px-3 py-1.5 bg-[#9f8aef] text-white text-xs font-bold rounded-lg hover:bg-[#9f8aef]/80 transition-colors"
+            >
+              Aceptar
+            </button>
+            <button
+              onClick={() => handleRejectRequest(notif.seguidor_id ?? notif.id)}
+              className="px-3 py-1.5 bg-gray-100 text-gray-700 text-xs font-bold rounded-lg hover:bg-gray-200 transition-colors"
+            >
+              Rechazar
+            </button>
+          </div>
+        )}
+
         <p className="text-xs text-gray-400 mt-1">
-          {new Date(notif.created_at).toLocaleDateString('es-ES', {
+          {parseUTCDate(notif.created_at)?.toLocaleDateString('es-ES', {
             day: 'numeric',
             month: 'short',
             hour: '2-digit',
@@ -1338,8 +1546,14 @@ const Profile = () => {
 
       {/* Modal de Seguidores */}
       {showFollowersModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col">
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowFollowersModal(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-900">Seguidores ({followersCount})</h3>
               <button onClick={() => setShowFollowersModal(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">
@@ -1390,8 +1604,14 @@ const Profile = () => {
 
       {/* Modal de Seguidos */}
       {showFollowingModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col">
+        <div 
+          className="fixed inset-0 bg-black/50 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+          onClick={() => setShowFollowingModal(false)}
+        >
+          <div 
+            className="bg-white rounded-2xl shadow-2xl max-w-md w-full max-h-[80vh] overflow-hidden flex flex-col"
+            onClick={(e) => e.stopPropagation()}
+          >
             <div className="p-4 border-b border-gray-100 flex items-center justify-between">
               <h3 className="text-lg font-bold text-gray-900">Seguidos ({followingCount})</h3>
               <button onClick={() => setShowFollowingModal(false)} className="p-2 hover:bg-gray-100 rounded-lg transition-colors">

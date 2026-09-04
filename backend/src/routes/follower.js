@@ -15,6 +15,12 @@ router.delete('/unfollow/:followingId', followerController.unfollow);
 // Verificar si un usuario sigue a otro
 router.get('/check/:followingId', followerController.checkFollowing);
 
+// Aceptar solicitud de seguimiento
+router.patch('/solicitudes/:solicitudId/aceptar', followerController.acceptRequest);
+
+// Rechazar solicitud de seguimiento
+router.patch('/solicitudes/:solicitudId/rechazar', followerController.rejectRequest);
+
 // Obtener conteo de seguidores y seguidos
 router.get('/counts/:userId', followerController.getCounts);
 

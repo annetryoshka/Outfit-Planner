@@ -7,6 +7,7 @@ const Sidebar = () => {
   const navigate = useNavigate()
   const location = useLocation()
   const [currentUser, setCurrentUser] = useState(null)
+  const [shouldBlur, setShouldBlur] = useState(false)
 
   // Detectar cambios en autenticación (login/logout)
   useEffect(() => {
@@ -38,6 +39,29 @@ const Sidebar = () => {
       window.removeEventListener('authChange', handleAuthChange)
       window.removeEventListener('storage', handleStorageChange)
     }
+  }, [])
+
+  // Escuchar eventos de blur desde Profile.jsx
+  useEffect(() => {
+    const handleBlurChange = (e) => {
+      setShouldBlur(e.detail.blur)
+    }
+
+    window.addEventListener('modalBlurChange', handleBlurChange)
+
+    return () => {
+      window.removeEventListener('modalBlurChange', handleBlurChange)
+    }
+  }, [])
+
+  // Verificar localStorage periódicamente para sincronización instantánea
+  useEffect(() => {
+    const interval = setInterval(() => {
+      const blurFromStorage = localStorage.getItem('modalBlur') === 'true'
+      setShouldBlur(blurFromStorage)
+    }, 10) // Verificar cada 10ms para máxima instantaneidad
+
+    return () => clearInterval(interval)
   }, [])
 
   const activeItem = (() => {

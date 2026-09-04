@@ -3,6 +3,7 @@ import { useNavigate, Link } from 'react-router-dom'
 import { Eye, EyeOff } from 'lucide-react'
 import authService from '../services/authService'
 import logo6 from '../assets/logo6.png'
+import { BACKEND_URL } from '../config'
 
 function Login() {
   const [form, setForm] = useState({ email: '', password: '' })
@@ -107,13 +108,18 @@ function Login() {
           <span className="text-xs text-gray-400">o</span>
           <div className="flex-1 h-px bg-gray-200" />
         </div>
-        <a
-          href="http://localhost:3000/api/auth/google"
+
+        <button
+          onClick={() => window.location.href = `${BACKEND_URL}/api/auth/google`}
           className="w-full flex items-center justify-center gap-3 border border-gray-200 rounded-xl py-3 text-sm font-medium text-gray-700 hover:bg-gray-50 transition-all duration-300"
         >
-          <img src="https://www.google.com/favicon.ico" alt="Google" className="w-4 h-4" />
+          <img 
+            src="https://www.google.com/favicon.ico" 
+            alt="Google" 
+            className="w-4 h-4" 
+          />
           Continuar con Google
-        </a>
+        </button>
 
         <p className="text-center text-sm text-gray-400 mt-6">
           ¿No tienes cuenta?{' '}
