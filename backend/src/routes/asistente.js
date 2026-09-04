@@ -2,6 +2,7 @@ const express = require('express')
 const router = express.Router()
 const asistenteController = require('../controllers/asistentController')
 const authMiddleware = require('../middleware/auth')
+const { aiLimiter } = require('../middleware/rateLimiter')
 
 router.use(authMiddleware)
 

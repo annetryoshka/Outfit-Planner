@@ -27,7 +27,7 @@ const { aiLimiter } = require('../middleware/rateLimiter')
  *       200:
  *         description: Sugerencia basada en temperatura
  */
-router.get('/coordenadas/outfit', aiLimiter, climaController.getOutfitByCoordenadas)
+router.get('/coordenadas/outfit', aiLimiter, climaController.outfitPorCoordenadas)
 
 /**
  * @swagger
@@ -52,7 +52,7 @@ router.get('/coordenadas/outfit', aiLimiter, climaController.getOutfitByCoordena
  *       200:
  *         description: Outfit personalizado con prendas reales
  */
-router.get('/outfit-inteligente', aiLimiter, climaController.outfitInteligente)
+router.get('/outfit-inteligente', aiLimiter, authMiddleware, climaController.outfitInteligente)
 
 /**
  * @swagger
@@ -73,7 +73,7 @@ router.get('/outfit-inteligente', aiLimiter, climaController.outfitInteligente)
  *       500:
  *         description: Ciudad no encontrada
  */
-router.get('/:ciudad', climaController.obtenerClima)
+router.get('/:ciudad/outfit', aiLimiter, climaController.outfitPorClima)
 
 /**
  * @swagger
@@ -94,6 +94,7 @@ router.get('/:ciudad', climaController.obtenerClima)
  *       500:
  *         description: Ciudad no encontrada
  */
-router.get('/:ciudad/outfit', aiLimiter, climaController.getOutfitByClima)
+
+router.get('/:ciudad', climaController.obtenerClima)
 
 module.exports = router
