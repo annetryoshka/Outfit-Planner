@@ -1,27 +1,29 @@
 const rateLimit = require('express-rate-limit')
 
-//100 requests por 15 minutos
 const generalLimiter = rateLimit({
   windowMs: 15 * 60 * 1000,
-  max: 100,
+  max: 10000,
   message: 'Demasiadas peticiones, intenta más tarde',
   standardHeaders: true,
   legacyHeaders: false,
+  validate: { xForwardedForHeader: false }
 })
 
-//auth: 5 intentos por 15 minutos
+//50 intentos por minuto
 const authLimiter = rateLimit({
-  windowMs: 15 * 60 * 1000,
-  max: 5,
-  message: 'Demasiados intentos de login, intenta en 15 minutos',
+  windowMs: 1 * 60 * 1000,
+  max: 50,
+  message: 'Demasiados intentos de login, intenta en 1 minuto',
   skipSuccessfulRequests: true,
+  validate: { xForwardedForHeader: false }
 })
 
-//límite para IA 20 por hora
+// IA: 100 por hora para la demo
 const aiLimiter = rateLimit({
   windowMs: 60 * 60 * 1000,
-  max: 20,
+  max: 100,
   message: 'Límite de consultas IA alcanzado',
+  validate: { xForwardedForHeader: false }
 })
 
 module.exports = { generalLimiter, authLimiter, aiLimiter }
