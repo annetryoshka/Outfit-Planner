@@ -131,15 +131,28 @@ router.get('/google', passport.authenticate('google', { scope: ['profile', 'emai
  *         description: Redirige al frontend con token
  */
 router.get('/google/callback',
-  passport.authenticate('google', { failureRedirect: 'http://localhost:5173/login', session: false }),
+  passport.authenticate('google', { session: false }),
   (req, res) => {
+    // Detectar la URL del frontend según el ambiente
+    const frontendURL = process.env.NODE_ENV === 'production' 
+      ? process.env.FRONTEND_URL || 'https://outfit-planner-m12p.onrender.com'
+      : 'http://localhost:5173'
+    npm 
     const token = jwt.sign(
       { id: req.user.id },
       process.env.JWT_SECRET,
       { expiresIn: process.env.JWT_EXPIRES_IN }
     )
-    res.redirect(`http://localhost:5173/?token=${token}&usuario=${encodeURIComponent(JSON.stringify(req.user))}`)
+    
+    res.redirect(`${frontendURL}/?token=${token}&usuario=${encodeURIComponent(JSON.stringify(req.user))}`)
+  },
+  (err, req, res, next) => {
+    // Si falla la autenticación
+    const frontendURL = process.env.NODE_ENV === 'production'
+      ? process.env.FRONTEND_URL || 'https://outfit-planner-m12p.onrender.com'
+      : 'http://localhost:5173'
+    
+    res.redirect(`${frontendURL}/login?error=auth_failed`)
   }
 );
-
 module.exports = router
