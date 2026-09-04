@@ -28,6 +28,31 @@ const notificationService = {
       .order('created_at', { ascending: false });
 
     if (error) throw error;
+
+    // Para notificaciones de solicitud de seguimiento, buscar el ID de la relación en seguidores
+    const solicitudes = data.filter(n => n.tipo === 'solicitud_seguimiento');
+    if (solicitudes.length > 0) {
+      const actorIds = solicitudes.map(n => n.actor_id);
+      const { data: seguidoresData } = await supabase
+        .from('seguidores')
+        .select('id, follower_id, following_id')
+        .eq('following_id', userId)
+        .in('follower_id', actorIds);
+
+      // Crear mapa de actor_id -> seguidor_id
+      const seguidorMap = {};
+      seguidoresData?.forEach(s => {
+        seguidorMap[s.follower_id] = s.id;
+      });
+
+      // Agregar seguidor_id a las notificaciones de solicitud
+      data.forEach(n => {
+        if (n.tipo === 'solicitud_seguimiento') {
+          n.seguidor_id = seguidorMap[n.actor_id];
+        }
+      });
+    }
+
     return data;
   },
 
@@ -59,7 +84,7 @@ const notificationService = {
   async getPopularUsers(currentUserId) {
     const { data, error } = await supabase
       .from('prendas')
-      .select('user_id, likes_count, users!prendas_user_id_fkey (id, nombre, apellido, foto_perfil)')
+      .select('user_id, likes_count, users!prendas_user_id_fkey (id, nombre, apellido, foto_perfil, es_privado)')
       .eq('publico', true)
       .not('user_id', 'eq', currentUserId);
 
@@ -75,6 +100,7 @@ const notificationService = {
           nombre: prenda.users.nombre,
           apellido: prenda.users.apellido,
           foto_perfil: prenda.users.foto_perfil,
+          es_privado: prenda.users.es_privado,
           totalLikes: 0
         };
       }
@@ -86,19 +112,22 @@ const notificationService = {
       .sort((a, b) => b.totalLikes - a.totalLikes)
       .slice(0, 5);
 
-    // Verificar si el usuario actual sigue a cada uno
+    // Verificar el estado de seguimiento para cada usuario
     const userIds = sortedUsers.map(u => u.id);
     const { data: followingData } = await supabase
       .from('seguidores')
-      .select('following_id')
+      .select('following_id, estado')
       .eq('follower_id', currentUserId)
       .in('following_id', userIds);
 
-    const followingIds = new Set(followingData?.map(f => f.following_id) || []);
+    const followingStates = {};
+    followingData?.forEach(f => {
+      followingStates[f.following_id] = f.estado;
+    });
 
     return sortedUsers.map(user => ({
       ...user,
-      is_following: followingIds.has(user.id)
+      follow_state: followingStates[user.id] || 'ninguno'
     }));
   },
 
@@ -106,26 +135,29 @@ const notificationService = {
   async searchUsers(query, currentUserId) {
     const { data, error } = await supabase
       .from('users')
-      .select('id, nombre, apellido, foto_perfil')
+      .select('id, nombre, apellido, foto_perfil, es_privado')
       .neq('id', currentUserId)
       .or(`nombre.ilike.%${query}%,apellido.ilike.%${query}%`)
       .limit(20);
 
     if (error) throw error;
 
-    // Verificar si el usuario actual sigue a cada uno
+    // Verificar el estado de seguimiento para cada usuario
     const userIds = data.map(u => u.id);
     const { data: followingData } = await supabase
       .from('seguidores')
-      .select('following_id')
+      .select('following_id, estado')
       .eq('follower_id', currentUserId)
       .in('following_id', userIds);
 
-    const followingIds = new Set(followingData?.map(f => f.following_id) || []);
+    const followingStates = {};
+    followingData?.forEach(f => {
+      followingStates[f.following_id] = f.estado;
+    });
 
     return data.map(user => ({
       ...user,
-      is_following: followingIds.has(user.id)
+      follow_state: followingStates[user.id] || 'ninguno'
     }));
   }
 };
