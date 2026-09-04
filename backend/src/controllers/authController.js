@@ -2,14 +2,18 @@ const bcrypt = require('bcryptjs')
 const jwt = require('jsonwebtoken')
 const User = require('../models/User')
 const { uploadToStorage, deleteFromStorage } = require('../services/uploadService')
+const logger = require('../config/logger')
 
 const authController = {
   async registro(req, res) {
     try {
       const { nombre, apellido, email, password } = req.body
 
+      logger.info('Intento de registro', { email })
+
       const usuarioExiste = await User.findByEmail(email)
       if (usuarioExiste) {
+        logger.warn('Intento de registro con email existente', { email })
         return res.status(400).json({ message: 'El email ya está registrado' })
       }
 
@@ -29,9 +33,11 @@ const authController = {
         { expiresIn: process.env.JWT_EXPIRES_IN }
       )
 
+      logger.info('Registro exitoso', { email, usuarioId: usuario.id })
       res.status(201).json({ usuario, token })
 
     } catch (error) {
+      logger.error('Error en registro', { error: error.message, stack: error.stack })
       res.status(500).json({ message: 'Error en el servidor', error: error.message })
     }
   },
@@ -40,13 +46,18 @@ const authController = {
   async login(req, res) {
     try {
       const { email, password } = req.body
+
+      logger.info('Intento de login', { email })
+
       const usuario = await User.findByEmail(email)
       if (!usuario) {
+        logger.warn('Login fallido - usuario no encontrado', { email })
         return res.status(400).json({ message: 'Credenciales incorrectas' })
       }
 
       const passwordValida = await bcrypt.compare(password, usuario.password)
       if (!passwordValida) {
+        logger.warn('Login fallido - contraseña incorrecta', { email })
         return res.status(400).json({ message: 'Credenciales incorrectas' })
       }
 
@@ -57,9 +68,11 @@ const authController = {
       )
 
       const { password: _, ...usuarioSinPassword } = usuario
+      logger.info('Login exitoso', { email, usuarioId: usuario.id })
       res.json({ usuario: usuarioSinPassword, token })
 
     } catch (error) {
+      logger.error('Error en login', { error: error.message, stack: error.stack })
       res.status(500).json({ message: 'Error en el servidor', error: error.message })
     }
   },
@@ -71,11 +84,15 @@ const authController = {
 
       const userId = req.usuario?.id || req.user?.id;
       if (!userId) {
+        logger.warn('Intento de actualizar perfil sin autorización')
         return res.status(401).json({ message: 'No autorizado, sesión inválida' });
       }
 
+      logger.info('Actualizando perfil', { usuarioId: userId })
+
       let usuarioActual = await User.findById(userId);
       if (!usuarioActual) {
+        logger.error('Usuario no encontrado al actualizar perfil', { usuarioId: userId })
         return res.status(404).json({ message: 'Usuario no encontrado' });
       }
 
@@ -94,11 +111,13 @@ const authController = {
         }
 
         if (!usuarioActual.password) {
+          logger.error('No se pudo recuperar contraseña actual', { usuarioId: userId })
           return res.status(500).json({ message: 'No se pudo recuperar la contraseña actual desde el servidor de datos.' });
         }
 
         const passwordValida = await bcrypt.compare(passwordActual, usuarioActual.password);
         if (!passwordValida) {
+          logger.warn('Cambio de contraseña fallido - contraseña actual incorrecta', { usuarioId: userId })
           return res.status(400).json({ message: 'La contraseña actual es incorrecta' });
         }
 
@@ -108,6 +127,7 @@ const authController = {
 
         const salt = await bcrypt.genSalt(10);
         passwordFinal = await bcrypt.hash(nuevaPassword, salt);
+        logger.info('Contraseña actualizada', { usuarioId: userId })
       }
 
       if (req.file) {
@@ -115,7 +135,7 @@ const authController = {
           await deleteFromStorage(usuarioActual.foto_perfil, 'iconprofile');
         }
 
-        console.log("Subiendo foto de perfil...");
+        logger.info('Subiendo foto de perfil', { usuarioId: userId, filename: req.file.originalname })
         const filename = `perfil_${userId}_${Date.now()}`;
         
         foto_perfil = await uploadToStorage(
@@ -127,8 +147,11 @@ const authController = {
         );
 
         if (!foto_perfil) {
+          logger.error('Error al subir foto de perfil', { usuarioId: userId })
           return res.status(500).json({ message: 'Error al subir la foto de perfil' });
         }
+
+        logger.info('Foto de perfil subida exitosamente', { usuarioId: userId })
       }
 
       const usuarioActualizado = await User.update(userId, {
@@ -144,14 +167,16 @@ const authController = {
       })
 
       if (!usuarioActualizado) {
+        logger.error('No se pudo recuperar usuario actualizado', { usuarioId: userId })
         return res.status(500).json({ message: 'No se pudo recuperar el usuario actualizado' });
       }
 
       const { password: _, ...dataSinPassword } = usuarioActualizado;
+      logger.info('Perfil actualizado exitosamente', { usuarioId: userId })
       res.json({ user: dataSinPassword })
 
     } catch (error) {
-      console.error("Error en actualizarPerfil:", error);
+      logger.error('Error en actualizarPerfil', { error: error.message, stack: error.stack })
       res.status(500).json({ message: 'Error al actualizar perfil', error: error.message })
     }
   }

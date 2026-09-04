@@ -1,4 +1,5 @@
-const {Client} = require('@gradio/client')
+//const {Client} = require('@gradio/client')
+//onst { GradioClient } = require('@gradio/client')
 const LIGHTX_API_KEY = process.env.LIGHTX_API_KEY
 
 // STEP 1 

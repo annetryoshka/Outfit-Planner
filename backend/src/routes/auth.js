@@ -3,6 +3,10 @@ const router = express.Router()
 const authController = require('../controllers/authController')
 const authMiddleware = require('../middleware/auth')
 const upload = require('../middleware/multer')
+const { authLimiter } = require('../middleware/rateLimiter')
+const passport = require('passport')
+const jwt = require('jsonwebtoken')
+require('../config/passport')
 
 /**
  * @swagger
@@ -31,7 +35,7 @@ const upload = require('../middleware/multer')
  *       400:
  *         description: El email ya está registrado
  */
-router.post('/registro', authController.registro)
+router.post('/registro', authLimiter, authController.registro)
 
 /**
  * @swagger
@@ -58,7 +62,7 @@ router.post('/registro', authController.registro)
  *       400:
  *         description: Credenciales incorrectas
  */
-router.post('/login', authController.login)
+router.post('/login', authLimiter, authController.login)
 
 /**
  * @swagger
@@ -94,17 +98,13 @@ router.put(
   (req, res, next) => {
     upload.single('foto_perfil')(req, res, (err) => {
       if (err) {
-        return res.status(400).json({ message: err.message });
+        return res.status(400).json({ message: err.message })
       }
-      next();
-    });
+      next()
+    })
   },
   authController.actualizarPerfil
-);
-
-const passport = require('passport')
-const jwt = require('jsonwebtoken')
-require('../config/passport')
+)
 
 /**
  * @swagger
@@ -117,7 +117,13 @@ require('../config/passport')
  *       302:
  *         description: Redirige a Google
  */
-router.get('/google', passport.authenticate('google', { scope: ['profile', 'email'] }))
+router.get('/google', (req, res, next) => {
+  console.log('🔍 DEBUG Google OAuth:')
+  console.log('CLIENT_ID:', process.env.GOOGLE_CLIENT_ID ? '✅' : '❌')
+  console.log('CLIENT_SECRET:', process.env.GOOGLE_CLIENT_SECRET ? '✅' : '❌')
+  console.log('CALLBACK_URL:', process.env.GOOGLE_CALLBACK_URL)
+  next()
+}, passport.authenticate('google', { scope: ['profile', 'email'] }))
 
 /**
  * @swagger
@@ -131,15 +137,38 @@ router.get('/google', passport.authenticate('google', { scope: ['profile', 'emai
  *         description: Redirige al frontend con token
  */
 router.get('/google/callback',
-  passport.authenticate('google', { failureRedirect: 'http://localhost:5173/login', session: false }),
+  passport.authenticate('google', { failureRedirect: '/api/auth/google/callback/error', session: false }),
   (req, res) => {
-    const token = jwt.sign(
-      { id: req.user.id },
-      process.env.JWT_SECRET,
-      { expiresIn: process.env.JWT_EXPIRES_IN }
-    )
-    res.redirect(`http://localhost:5173/?token=${token}&usuario=${encodeURIComponent(JSON.stringify(req.user))}`)
+    try {
+      // Detectar la URL del frontend según el ambiente
+      const frontendURL = process.env.NODE_ENV === 'production' 
+        ? process.env.FRONTEND_URL || 'https://outfit-planner-1-fu4w.onrender.com'
+        : 'http://localhost:5173'
+      
+      const token = jwt.sign(
+        { id: req.user.id },
+        process.env.JWT_SECRET,
+        { expiresIn: process.env.JWT_EXPIRES_IN }
+      )
+      
+      console.log('✅ Google OAuth exitoso para:', req.user.email)
+      res.redirect(`${frontendURL}/?token=${token}&usuario=${encodeURIComponent(JSON.stringify(req.user))}`)
+    } catch (error) {
+      console.error('❌ Error en callback de Google:', error.message)
+      const frontendURL = process.env.NODE_ENV === 'production'
+        ? process.env.FRONTEND_URL || 'https://outfit-planner-1-fu4w.onrender.com'
+        : 'http://localhost:5173'
+      res.redirect(`${frontendURL}/login?error=auth_failed`)
+    }
   }
-);
+)
+
+router.get('/google/callback/error', (req, res) => {
+  console.error('❌ Google OAuth falló')
+  const frontendURL = process.env.NODE_ENV === 'production'
+    ? process.env.FRONTEND_URL || 'https://outfit-planner-1-fu4w.onrender.com'
+    : 'http://localhost:5173'
+  res.redirect(`${frontendURL}/login?error=google_auth_failed`)
+})
 
 module.exports = router
