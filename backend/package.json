@@ -35,7 +35,7 @@
     "sweetalert2": "^11.26.24"
   },
   "devDependencies": {
-    "@gradio/client": "^2.2.0",
+    "@gradio/client": "^2.5.1",
     "nodemon": "^3.1.14"
   }
 }
