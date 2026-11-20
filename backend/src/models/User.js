@@ -28,6 +28,16 @@ const User = {
     return result.rows[0]
   },
 
+  async findPublicById(id) {
+    const result = await pool.query(
+      `SELECT id, nombre, apellido, foto_perfil, fondo, ciudad, bio, es_privado, created_at, color_panel
+       FROM users
+       WHERE id = $1`,
+      [id]
+    )
+    return result.rows[0]
+  },
+
   // 2. CORREGIDO: Ahora recibe, actualiza y retorna el 'apellido'
   async update(id, { nombre, apellido, foto_perfil, ciudad, bio, es_privado, fondo, color_panel }) {
     const result = await pool.query(
