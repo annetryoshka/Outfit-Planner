@@ -1,234 +1,202 @@
-require('dotenv').config();
-const { createClient } = require('@supabase/supabase-js');
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
-
-const supabase = createClient(supabaseUrl, supabaseKey);
+const pool = require('../config/database');
 
 const followerService = {
   // Seguir a un usuario
   async follow(followerId, followingId) {
-    // Verificar si ya existe una relación
-    const { data: existing } = await supabase
-      .from('seguidores')
-      .select('*')
-      .eq('follower_id', followerId)
-      .eq('following_id', followingId)
-      .single();
+    const existingResult = await pool.query(
+      `SELECT *
+       FROM seguidores
+       WHERE follower_id = $1 AND following_id = $2`,
+      [followerId, followingId]
+    );
 
+    const existing = existingResult.rows[0];
     if (existing) {
       return { ...existing, alreadyExists: true };
     }
 
-    // Verificar si el usuario objetivo es privado
-    const { data: targetUser } = await supabase
-      .from('users')
-      .select('es_privado')
-      .eq('id', followingId)
-      .single();
+    const targetResult = await pool.query(
+      `SELECT es_privado
+       FROM users
+       WHERE id = $1`,
+      [followingId]
+    );
 
-    const isPrivate = targetUser?.es_privado || false;
+    const isPrivate = targetResult.rows[0]?.es_privado || false;
     const estado = isPrivate ? 'pendiente' : 'aceptado';
     const tipoNotificacion = isPrivate ? 'solicitud_seguimiento' : 'seguidor';
 
-    const { data, error } = await supabase
-      .from('seguidores')
-      .insert({
-        follower_id: followerId,
-        following_id: followingId,
-        estado
-      })
-      .select()
-      .single();
+    const insertResult = await pool.query(
+      `INSERT INTO seguidores (follower_id, following_id, estado)
+       VALUES ($1, $2, $3)
+       RETURNING *`,
+      [followerId, followingId, estado]
+    );
 
-    if (error) throw error;
+    if (followerId !== followingId) {
+      await pool.query(
+        `INSERT INTO notificaciones (user_id, tipo, actor_id)
+         VALUES ($1, $2, $3)`,
+        [followingId, tipoNotificacion, followerId]
+      );
+    }
 
-    // Insertar notificación
-    await supabase
-      .from('notificaciones')
-      .insert({
-        user_id: followingId,
-        tipo: tipoNotificacion,
-        actor_id: followerId
-      });
-
-    return data;
+    return insertResult.rows[0];
   },
 
   // Dejar de seguir a un usuario
   async unfollow(followerId, followingId) {
-    const { error } = await supabase
-      .from('seguidores')
-      .delete()
-      .eq('follower_id', followerId)
-      .eq('following_id', followingId);
+    await pool.query(
+      `DELETE FROM seguidores
+       WHERE follower_id = $1 AND following_id = $2`,
+      [followerId, followingId]
+    );
 
-    if (error) throw error;
-
-    // Borrar notificación de solicitud pendiente si existe
-    await supabase
-      .from('notificaciones')
-      .delete()
-      .eq('user_id', followingId)
-      .eq('actor_id', followerId)
-      .eq('tipo', 'solicitud_seguimiento');
+    await pool.query(
+      `DELETE FROM notificaciones
+       WHERE user_id = $1 AND actor_id = $2 AND tipo = 'solicitud_seguimiento'`,
+      [followingId, followerId]
+    );
 
     return { success: true };
   },
 
   // Verificar si un usuario sigue a otro
   async isFollowing(followerId, followingId) {
-    const { data, error } = await supabase
-      .from('seguidores')
-      .select('estado')
-      .eq('follower_id', followerId)
-      .eq('following_id', followingId)
-      .single();
+    const result = await pool.query(
+      `SELECT estado
+       FROM seguidores
+       WHERE follower_id = $1 AND following_id = $2`,
+      [followerId, followingId]
+    );
 
-    if (error || !data) return 'ninguno';
+    const data = result.rows[0];
+    if (!data) return 'ninguno';
     return data.estado || 'ninguno';
   },
 
   // Obtener conteo de seguidores de un usuario
   async getFollowersCount(userId) {
-    const { count, error } = await supabase
-      .from('seguidores')
-      .select('*', { count: 'exact', head: true })
-      .eq('following_id', userId)
-      .eq('estado', 'aceptado');
+    const result = await pool.query(
+      `SELECT COUNT(*)::int AS count
+       FROM seguidores
+       WHERE following_id = $1 AND estado = 'aceptado'`,
+      [userId]
+    );
 
-    if (error) throw error;
-    return count || 0;
+    return result.rows[0].count || 0;
   },
 
   // Obtener conteo de seguidos de un usuario
   async getFollowingCount(userId) {
-    const { count, error } = await supabase
-      .from('seguidores')
-      .select('*', { count: 'exact', head: true })
-      .eq('follower_id', userId)
-      .eq('estado', 'aceptado');
+    const result = await pool.query(
+      `SELECT COUNT(*)::int AS count
+       FROM seguidores
+       WHERE follower_id = $1 AND estado = 'aceptado'`,
+      [userId]
+    );
 
-    if (error) throw error;
-    return count || 0;
+    return result.rows[0].count || 0;
   },
 
   // Obtener lista de seguidores de un usuario
   async getFollowers(userId) {
-    const { data, error } = await supabase
-      .from('seguidores')
-      .select(`
-        follower_id,
-        users!seguidores_follower_id_fkey (
-          id,
-          nombre,
-          apellido,
-          foto_perfil
-        )
-      `)
-      .eq('following_id', userId)
-      .eq('estado', 'aceptado')
-      .order('created_at', { ascending: false });
+    const result = await pool.query(
+      `SELECT u.id, u.nombre, u.apellido, u.foto_perfil
+       FROM seguidores s
+       JOIN users u ON u.id = s.follower_id
+       WHERE s.following_id = $1 AND s.estado = 'aceptado'
+       ORDER BY s.created_at DESC`,
+      [userId]
+    );
 
-    if (error) throw error;
-    return data.map(item => item.users);
+    return result.rows;
   },
 
   // Obtener lista de seguidos de un usuario
   async getFollowing(userId) {
-    const { data, error } = await supabase
-      .from('seguidores')
-      .select(`
-        users!seguidores_following_id_fkey (
-          id,
-          nombre,
-          apellido,
-          foto_perfil
-        )
-      `)
-      .eq('follower_id', userId)
-      .eq('estado', 'aceptado');
+    const result = await pool.query(
+      `SELECT u.id, u.nombre, u.apellido, u.foto_perfil
+       FROM seguidores s
+       JOIN users u ON u.id = s.following_id
+       WHERE s.follower_id = $1 AND s.estado = 'aceptado'`,
+      [userId]
+    );
 
-    if (error) throw error;
-    return data.map(f => f.users);
+    return result.rows;
   },
 
   // Aceptar solicitud de seguimiento
   async acceptRequest(solicitudId, userId) {
-    // Obtener la solicitud
-    const { data: solicitud, error: fetchError } = await supabase
-      .from('seguidores')
-      .select('*')
-      .eq('id', solicitudId)
-      .single();
+    const solicitudResult = await pool.query(
+      `SELECT *
+       FROM seguidores
+       WHERE id = $1`,
+      [solicitudId]
+    );
 
-    if (fetchError) throw fetchError;
+    const solicitud = solicitudResult.rows[0];
+    if (!solicitud) {
+      throw new Error('Solicitud no encontrada');
+    }
 
-    // Verificar que el usuario logueado es el dueño de la cuenta
     if (solicitud.following_id !== userId) {
       throw new Error('No tienes permiso para aceptar esta solicitud');
     }
 
-    // Actualizar estado a aceptado
-    const { error: updateError } = await supabase
-      .from('seguidores')
-      .update({ estado: 'aceptado' })
-      .eq('id', solicitudId);
+    await pool.query(
+      `UPDATE seguidores
+       SET estado = 'aceptado'
+       WHERE id = $1`,
+      [solicitudId]
+    );
 
-    if (updateError) throw updateError;
+    await pool.query(
+      `DELETE FROM notificaciones
+       WHERE user_id = $1 AND actor_id = $2 AND tipo = 'solicitud_seguimiento'`,
+      [userId, solicitud.follower_id]
+    );
 
-    // Eliminar la notificación de solicitud (en lugar de solo marcarla como leída)
-    await supabase
-      .from('notificaciones')
-      .delete()
-      .eq('user_id', userId)
-      .eq('actor_id', solicitud.follower_id)
-      .eq('tipo', 'solicitud_seguimiento');
-
-    // Crear notificación de aceptación
-    await supabase
-      .from('notificaciones')
-      .insert({
-        user_id: solicitud.follower_id,
-        tipo: 'solicitud_aceptada',
-        actor_id: userId
-      });
+    if (solicitud.follower_id !== userId) {
+      await pool.query(
+        `INSERT INTO notificaciones (user_id, tipo, actor_id)
+         VALUES ($1, 'solicitud_aceptada', $2)`,
+        [solicitud.follower_id, userId]
+      );
+    }
 
     return { success: true };
   },
 
   // Rechazar solicitud de seguimiento
   async rejectRequest(solicitudId, userId) {
-    // Obtener la solicitud
-    const { data: solicitud, error: fetchError } = await supabase
-      .from('seguidores')
-      .select('*')
-      .eq('id', solicitudId)
-      .single();
+    const solicitudResult = await pool.query(
+      `SELECT *
+       FROM seguidores
+       WHERE id = $1`,
+      [solicitudId]
+    );
 
-    if (fetchError) throw fetchError;
+    const solicitud = solicitudResult.rows[0];
+    if (!solicitud) {
+      throw new Error('Solicitud no encontrada');
+    }
 
-    // Verificar que el usuario logueado es el dueño de la cuenta
     if (solicitud.following_id !== userId) {
       throw new Error('No tienes permiso para rechazar esta solicitud');
     }
 
-    // Borrar la fila de seguidores
-    const { error: deleteError } = await supabase
-      .from('seguidores')
-      .delete()
-      .eq('id', solicitudId);
+    await pool.query(
+      `DELETE FROM seguidores
+       WHERE id = $1`,
+      [solicitudId]
+    );
 
-    if (deleteError) throw deleteError;
-
-    // Borrar la notificación de solicitud
-    await supabase
-      .from('notificaciones')
-      .delete()
-      .eq('user_id', userId)
-      .eq('actor_id', solicitud.follower_id)
-      .eq('tipo', 'solicitud_seguimiento');
+    await pool.query(
+      `DELETE FROM notificaciones
+       WHERE user_id = $1 AND actor_id = $2 AND tipo = 'solicitud_seguimiento'`,
+      [userId, solicitud.follower_id]
+    );
 
     return { success: true };
   }

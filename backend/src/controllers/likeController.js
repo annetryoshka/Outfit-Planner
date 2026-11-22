@@ -1,36 +1,25 @@
-require('dotenv').config();
-const { createClient } = require('@supabase/supabase-js');
-
-const supabaseUrl = process.env.SUPABASE_URL;
-const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
-const supabase = createClient(supabaseUrl, supabaseKey);
-
+const pool = require('../config/database')
 const Like = require('../models/Like')
 
 exports.darLike = async (req, res) => {
   try {
     const { prenda_id } = req.body
-    const user_id = req.usuario.id  
-    
+    const user_id = req.usuario.id
+
     const like = await Like.darLike(user_id, prenda_id)
-    
-    // Obtener información de la prenda para notificación
-    const { data: prenda } = await supabase
-      .from('prendas')
-      .select('user_id')
-      .eq('id', prenda_id)
-      .single();
-    
-    // Insertar notificación solo si el dueño de la prenda no es el mismo que dio el like
-    if (prenda && prenda.user_id !== user_id) {
-      await supabase
-        .from('notificaciones')
-        .insert({
-          user_id: prenda.user_id,
-          tipo: 'like',
-          actor_id: user_id,
-          prenda_id: prenda_id
-        });
+
+    const prendaResult = await pool.query(
+      'SELECT user_id FROM prendas WHERE id = $1',
+      [prenda_id]
+    )
+    const prenda = prendaResult.rows[0]
+
+    if (prenda && prenda.user_id && prenda.user_id !== user_id) {
+      await pool.query(
+        `INSERT INTO notificaciones (user_id, tipo, actor_id, prenda_id)
+         VALUES ($1, 'like', $2, $3)`,
+        [prenda.user_id, user_id, prenda_id]
+      )
     }
     
     res.json({ success: true, like })

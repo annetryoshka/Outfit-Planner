@@ -97,6 +97,8 @@ router.post(
  */
 router.get('/', prendaController.obtenerMisPrendas);
 
+router.get('/usuario/:userId/publicas', prendaController.obtenerPublicasPorUsuario);
+
 /**
  * @swagger
  * /api/prendas/{id}:
