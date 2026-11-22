@@ -85,8 +85,6 @@ router.get('/', outfitController.obtenerMisOutfits)
  */
 router.get('/fecha/:fecha', outfitController.obtenerPorFecha)
 
-router.get('/usuario/:userId/publicos', outfitController.obtenerPublicosPorUsuario)
-
 /**
  * @swagger
  * /api/outfits/{id}:

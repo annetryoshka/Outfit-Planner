@@ -37,40 +37,13 @@ const Prenda = {
 
   async findById(id) {
     const result = await pool.query(
-      `SELECT p.*, u.nombre as autor_nombre, u.apellido as autor_apellido, u.foto_perfil as foto_perfil
+      `SELECT p.*, u.nombre as autor_nombre, u.apellido as autor_apellido 
        FROM prendas p
        LEFT JOIN users u ON p.user_id = u.id
        WHERE p.id = $1`,
       [id]
     )
     return result.rows[0]
-  },
-
-  // Prendas públicas de un usuario. Perfil privado: solo el dueño o un seguidor aceptado.
-  async findPublicasByUser(userId, viewerId) {
-    const result = await pool.query(
-      `SELECT p.id, p.user_id, p.nombre, p.tipo, p.categoria, p.color, p.marca,
-              p.temporada, p.material, p.talla, p.imagen_url, p.publico,
-              p.likes_count, p.created_at
-       FROM prendas p
-       JOIN users u ON u.id = p.user_id
-       WHERE p.user_id = $1
-         AND p.publico = true
-         AND (
-           u.es_privado IS NOT TRUE
-           OR u.id = $2
-           OR EXISTS (
-             SELECT 1
-             FROM seguidores s
-             WHERE s.follower_id = $2
-               AND s.following_id = u.id
-               AND s.estado = 'aceptado'
-           )
-         )
-       ORDER BY p.created_at DESC`,
-      [userId, viewerId]
-    )
-    return result.rows
   },
 
   async update(id, { nombre, tipo, categoria, talla, color, temporada, marca, material, imagen_url, publico }) {

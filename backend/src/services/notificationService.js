@@ -1,82 +1,52 @@
-const pool = require('../config/database');
+require('dotenv').config();
+const { createClient } = require('@supabase/supabase-js');
 
-async function attachFollowState(users, currentUserId) {
-  if (!users.length) return [];
-
-  const result = await pool.query(
-    `SELECT following_id, estado
-     FROM seguidores
-     WHERE follower_id = $1
-       AND following_id = ANY($2::uuid[])`,
-    [currentUserId, users.map((user) => user.id)]
-  );
-
-  const followingStates = {};
-  result.rows.forEach((row) => {
-    followingStates[row.following_id] = row.estado;
-  });
-
-  return users.map((user) => ({
-    ...user,
-    follow_state: followingStates[user.id] || 'ninguno'
-  }));
-}
+const supabaseUrl = process.env.SUPABASE_URL;
+const supabaseKey = process.env.SUPABASE_SERVICE_ROLE_KEY || process.env.SUPABASE_KEY;
+const supabase = createClient(supabaseUrl, supabaseKey);
 
 const notificationService = {
   // Obtener notificaciones del usuario
   async getNotifications(userId) {
-    const result = await pool.query(
-      `SELECT
-         n.id,
-         n.user_id,
-         n.tipo,
-         n.actor_id,
-         n.prenda_id,
-         n.leida,
-         n.created_at,
-         CASE
-           WHEN u.id IS NULL THEN NULL
-           ELSE json_build_object(
-             'id', u.id,
-             'nombre', u.nombre,
-             'apellido', u.apellido,
-             'foto_perfil', u.foto_perfil
-           )
-         END AS users,
-         CASE
-           WHEN p.id IS NULL THEN NULL
-           ELSE json_build_object(
-             'id', p.id,
-             'nombre', p.nombre,
-             'imagen_url', p.imagen_url
-           )
-         END AS prendas
-       FROM notificaciones n
-       LEFT JOIN users u ON u.id = n.actor_id
-       LEFT JOIN prendas p ON p.id = n.prenda_id
-       WHERE n.user_id = $1
-       ORDER BY n.created_at DESC`,
-      [userId]
-    );
+    const { data, error } = await supabase
+      .from('notificaciones')
+      .select(`
+        *,
+        users!notificaciones_actor_id_fkey (
+          id,
+          nombre,
+          apellido,
+          foto_perfil
+        ),
+        prendas (
+          id,
+          nombre,
+          imagen_url
+        )
+      `)
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false });
 
-    const data = result.rows;
-    const solicitudes = data.filter((n) => n.tipo === 'solicitud_seguimiento');
+    if (error) throw error;
 
+    // Para notificaciones de solicitud de seguimiento, buscar el ID de la relación en seguidores
+    const solicitudes = data.filter(n => n.tipo === 'solicitud_seguimiento');
     if (solicitudes.length > 0) {
-      const seguidoresResult = await pool.query(
-        `SELECT id, follower_id
-         FROM seguidores
-         WHERE following_id = $1
-           AND follower_id = ANY($2::uuid[])`,
-        [userId, solicitudes.map((n) => n.actor_id)]
-      );
+      const actorIds = solicitudes.map(n => n.actor_id);
+      const { data: seguidoresData } = await supabase
+        .from('seguidores')
+        .select('id, follower_id, following_id')
+        .eq('following_id', userId)
+        .in('follower_id', actorIds);
 
+      // Crear mapa de actor_id -> seguidor_id
       const seguidorMap = {};
-      seguidoresResult.rows.forEach((row) => {
-        seguidorMap[row.follower_id] = row.id;
+      seguidoresData?.forEach(s => {
+        seguidorMap[s.follower_id] = s.id;
       });
 
-      data.forEach((n) => {
+      // Agregar seguidor_id a las notificaciones de solicitud
+      data.forEach(n => {
         if (n.tipo === 'solicitud_seguimiento') {
           n.seguidor_id = seguidorMap[n.actor_id];
         }
@@ -88,64 +58,107 @@ const notificationService = {
 
   // Marcar todas las notificaciones como leídas
   async markAsRead(userId) {
-    await pool.query(
-      `UPDATE notificaciones
-       SET leida = true
-       WHERE user_id = $1 AND leida = false`,
-      [userId]
-    );
+    const { error } = await supabase
+      .from('notificaciones')
+      .update({ leida: true })
+      .eq('user_id', userId)
+      .eq('leida', false);
 
+    if (error) throw error;
     return { success: true };
   },
 
   // Obtener conteo de notificaciones no leídas
   async getUnreadCount(userId) {
-    const result = await pool.query(
-      `SELECT COUNT(*)::int AS count
-       FROM notificaciones
-       WHERE user_id = $1 AND leida = false`,
-      [userId]
-    );
+    const { count, error } = await supabase
+      .from('notificaciones')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', userId)
+      .eq('leida', false);
 
-    return result.rows[0].count || 0;
+    if (error) throw error;
+    return count || 0;
   },
 
   // Obtener cuentas populares (top 5 usuarios con más likes en prendas públicas)
   async getPopularUsers(currentUserId) {
-    const result = await pool.query(
-      `SELECT
-         u.id,
-         u.nombre,
-         u.apellido,
-         u.foto_perfil,
-         u.es_privado,
-         COALESCE(SUM(p.likes_count), 0)::int AS "totalLikes"
-       FROM prendas p
-       JOIN users u ON u.id = p.user_id
-       WHERE p.publico = true
-         AND p.user_id IS NOT NULL
-         AND p.user_id <> $1
-       GROUP BY u.id, u.nombre, u.apellido, u.foto_perfil, u.es_privado
-       ORDER BY "totalLikes" DESC
-       LIMIT 5`,
-      [currentUserId]
-    );
+    const { data, error } = await supabase
+      .from('prendas')
+      .select('user_id, likes_count, users!prendas_user_id_fkey (id, nombre, apellido, foto_perfil, es_privado)')
+      .eq('publico', true)
+      .not('user_id', 'eq', currentUserId);
 
-    return attachFollowState(result.rows, currentUserId);
+    if (error) throw error;
+
+    // Agrupar por usuario y sumar likes
+    const userLikes = {};
+    data.forEach(prenda => {
+      const userId = prenda.user_id;
+      if (!userLikes[userId]) {
+        userLikes[userId] = {
+          id: prenda.users.id,
+          nombre: prenda.users.nombre,
+          apellido: prenda.users.apellido,
+          foto_perfil: prenda.users.foto_perfil,
+          es_privado: prenda.users.es_privado,
+          totalLikes: 0
+        };
+      }
+      userLikes[userId].totalLikes += (prenda.likes_count || 0);
+    });
+
+    // Convertir a array y ordenar por likes
+    const sortedUsers = Object.values(userLikes)
+      .sort((a, b) => b.totalLikes - a.totalLikes)
+      .slice(0, 5);
+
+    // Verificar el estado de seguimiento para cada usuario
+    const userIds = sortedUsers.map(u => u.id);
+    const { data: followingData } = await supabase
+      .from('seguidores')
+      .select('following_id, estado')
+      .eq('follower_id', currentUserId)
+      .in('following_id', userIds);
+
+    const followingStates = {};
+    followingData?.forEach(f => {
+      followingStates[f.following_id] = f.estado;
+    });
+
+    return sortedUsers.map(user => ({
+      ...user,
+      follow_state: followingStates[user.id] || 'ninguno'
+    }));
   },
 
   // Buscar usuarios por nombre y apellido
   async searchUsers(query, currentUserId) {
-    const result = await pool.query(
-      `SELECT id, nombre, apellido, foto_perfil, es_privado
-       FROM users
-       WHERE id <> $1
-         AND (nombre ILIKE $2 OR apellido ILIKE $2)
-       LIMIT 20`,
-      [currentUserId, `%${query}%`]
-    );
+    const { data, error } = await supabase
+      .from('users')
+      .select('id, nombre, apellido, foto_perfil, es_privado')
+      .neq('id', currentUserId)
+      .or(`nombre.ilike.%${query}%,apellido.ilike.%${query}%`)
+      .limit(20);
 
-    return attachFollowState(result.rows, currentUserId);
+    if (error) throw error;
+
+    // Verificar el estado de seguimiento para cada usuario
+    const userIds = data.map(u => u.id);
+    const { data: followingData } = await supabase
+      .from('seguidores')
+      .select('following_id, estado')
+      .eq('follower_id', currentUserId)
+      .in('following_id', userIds);
+
+    const followingStates = {};
+    followingData?.forEach(f => {
+      followingStates[f.following_id] = f.estado;
+    });
+
+    return data.map(user => ({
+      ...user,
+      follow_state: followingStates[user.id] || 'ninguno'
+    }));
   }
 };
 

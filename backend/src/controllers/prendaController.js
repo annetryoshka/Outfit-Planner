@@ -113,15 +113,6 @@ const prendaController = {
     }
   },
 
-  async obtenerPublicasPorUsuario(req, res) {
-    try {
-      const prendas = await Prenda.findPublicasByUser(req.params.userId, req.usuario.id)
-      res.json(prendas)
-    } catch (error) {
-      res.status(500).json({ message: 'Error al obtener prendas públicas', error: error.message })
-    }
-  },
-
   async obtenerPorId(req, res) {
     try {
       const prenda = await Prenda.findById(req.params.id)
