@@ -7,6 +7,7 @@ import prendaService from '../services/prendaService'
 import authService from '../services/authService'
 import guardadoService from '../services/guardadoService'
 import likeService from '../services/likeService'
+import { supabase } from '../services/supabaseClient'
 
 const fmt = (s) => {
   if (s == null || s === '') return ''
@@ -68,9 +69,20 @@ const PrendaDetail = () => {
         // console.log('Prenda recibida del backend:', p)
         setPrenda(p)
         setLikesCount(p.likes_count || 0)
-        setAutorFoto(p.foto_perfil || null)
         const lista = Array.isArray(todas) ? todas : []
         setPrendasRelacionadas(lista.filter(x => String(x.id) !== String(id)).slice(0, 12))
+
+        // Cargar foto de perfil del autor desde Supabase
+        if (p.user_id) {
+          const { data: userData } = await supabase
+            .from('users')
+            .select('foto_perfil')
+            .eq('id', p.user_id)
+            .single()
+          if (userData && !cancelled) {
+            setAutorFoto(userData.foto_perfil)
+          }
+        }
       } catch (e) {
         if (cancelled) return
         if (e.response?.status === 401) setError('login')

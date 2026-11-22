@@ -80,15 +80,6 @@ const outfitController = {
     }
   },
 
-  async obtenerPublicosPorUsuario(req, res) {
-    try {
-      const outfits = await Outfit.findPublicosByUser(req.params.userId, req.usuario.id)
-      res.json(outfits)
-    } catch (error) {
-      res.status(500).json({ message: 'Error al obtener outfits públicos', error: error.message })
-    }
-  },
-
   async obtenerPorId(req, res) {
     try {
       const outfit = await Outfit.findById(req.params.id)

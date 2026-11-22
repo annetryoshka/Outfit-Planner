@@ -17,7 +17,6 @@ const guardadoRoutes = require('./src/routes/guardado')
 const likeRoutes = require('./src/routes/like')
 const followerRoutes = require('./src/routes/follower')
 const notificationRoutes = require('./src/routes/notification')
-const userRoutes = require('./src/routes/users')
 const { specs, swaggerUi } = require('./src/config/swagger')
 const passport = require('passport')
 const logger = require('./src/config/logger')
@@ -26,13 +25,11 @@ const app = express()
 const PORT = process.env.PORT || 3000
 app.set('trust proxy', 1)
 
-const corsOrigin = (process.env.CORS_ORIGIN || 'http://localhost:5173')
-  .split(',')
-  .map((origin) => origin.trim())
-  .filter(Boolean)
-
 app.use(cors({
-  origin: corsOrigin,
+  origin: [
+    'http://localhost:5173',
+    'https://outfit-planner-1-fu4w.onrender.com'
+  ],
   credentials: true
 }))
 
@@ -41,10 +38,6 @@ app.use(express.urlencoded({ limit: '50mb', extended: true }))
 
 require('./src/config/passport')
 app.use(passport.initialize())
-
-app.get('/health', (req, res) => {
-  res.json({ status: 'ok' })
-})
 
 app.use(generalLimiter)
 
@@ -58,7 +51,6 @@ app.use('/api/wishlist', wishlistRoutes)
 app.use('/api/tryon', tryonRoutes)
 app.use('/api/guardados', guardadoRoutes)
 app.use('/api/likes', likeRoutes)
-app.use('/api/users', userRoutes)
 app.use('/api/followers', followerRoutes)
 app.use('/api/notifications', notificationRoutes)
 app.use('/api/docs', swaggerUi.serve, swaggerUi.setup(specs))

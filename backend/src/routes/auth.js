@@ -140,7 +140,10 @@ router.get('/google/callback',
   passport.authenticate('google', { failureRedirect: '/api/auth/google/callback/error', session: false }),
   (req, res) => {
     try {
-      const frontendURL = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '')
+      // Detectar la URL del frontend según el ambiente
+      const frontendURL = process.env.NODE_ENV === 'production' 
+        ? process.env.FRONTEND_URL || 'https://outfit-planner-1-fu4w.onrender.com'
+        : 'http://localhost:5173'
       
       const token = jwt.sign(
         { id: req.user.id },
@@ -152,7 +155,9 @@ router.get('/google/callback',
       res.redirect(`${frontendURL}/?token=${token}&usuario=${encodeURIComponent(JSON.stringify(req.user))}`)
     } catch (error) {
       console.error('❌ Error en callback de Google:', error.message)
-      const frontendURL = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '')
+      const frontendURL = process.env.NODE_ENV === 'production'
+        ? process.env.FRONTEND_URL || 'https://outfit-planner-1-fu4w.onrender.com'
+        : 'http://localhost:5173'
       res.redirect(`${frontendURL}/login?error=auth_failed`)
     }
   }
@@ -160,7 +165,9 @@ router.get('/google/callback',
 
 router.get('/google/callback/error', (req, res) => {
   console.error('❌ Google OAuth falló')
-  const frontendURL = (process.env.FRONTEND_URL || 'http://localhost:5173').replace(/\/$/, '')
+  const frontendURL = process.env.NODE_ENV === 'production'
+    ? process.env.FRONTEND_URL || 'https://outfit-planner-1-fu4w.onrender.com'
+    : 'http://localhost:5173'
   res.redirect(`${frontendURL}/login?error=google_auth_failed`)
 })
 

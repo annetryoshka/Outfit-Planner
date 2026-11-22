@@ -1,7 +1,7 @@
 import React, { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams, useSearchParams } from 'react-router-dom';
 import authService from '../services/authService';
-import api from '../services/api';
+import { supabase } from '../services/supabaseClient';
 import { 
   User, MapPin, Mail, Calendar, Lock, Globe, Camera, 
   LogOut, Plus, Shirt, Grid, Search, Pencil, Check, X, Trash2, Lightbulb, Users, Heart
@@ -137,13 +137,19 @@ const Profile = () => {
     } else {
       // Ruta /perfil/:userId — perfil ajeno, cargar desde Supabase
       const loadVisitedProfile = async () => {
-        try {
-          const { data } = await api.get(`/users/${userId}`);
+        const { data, error } = await supabase
+  .from('users') // tabla correcta según el schema
+  .select('id, nombre, apellido, foto_perfil, fondo, ciudad, bio, es_privado, created_at, color_panel')
+  // ⚠️ No seleccionamos email ni password por seguridad
+  .eq('id', userId)
+  .single();
+        if (error || !data) {
+          console.error('No se encontró el perfil:', error?.message);
+          // Mostramos un estado vacío en vez de redirigir
+          setUser(null);
+        } else {
           setUser(data);
           setFormData(data);
-        } catch (error) {
-          console.error('No se encontró el perfil:', error?.message);
-          setUser(null);
         }
       };
       loadVisitedProfile();
@@ -246,8 +252,8 @@ const Profile = () => {
     } else {
       // Para visitantes: solo prendas públicas y outfits públicos del usuario visitado
       Promise.all([
-        api.get(`/prendas/usuario/${user.id}/publicas`).then((res) => res.data || []),
-        api.get(`/outfits/usuario/${user.id}/publicos`).then((res) => res.data || []),
+        supabase.from("prendas").select("*").eq("user_id", user.id).eq("publico", true).then(({ data }) => data || []),
+        supabase.from("outfits").select("*").eq("user_id", user.id).eq("es_publico", true).then(({ data }) => data || []),
       ])
         .then(([p, o]) => {
           if (cancelled) return;
@@ -488,26 +494,35 @@ const Profile = () => {
       setStatusMessage({ type: 'error', text: 'Solo se permiten archivos de imagen.' });
       return;
     }
-    if (type === 'fondo') {
-      setStatusMessage({
-        type: 'error',
-        text: 'La imagen de fondo todavía no se puede subir: el servidor solo recibe el archivo en foto_perfil.'
-      });
-      return;
-    }
     if (type === 'avatar') setUploadingPhoto(true);
+    if (type === 'fondo') setUploadingBackground(true);
+    const bucketName = 'iconprofile';
     try {
-      const payload = new FormData();
-      ['nombre', 'apellido', 'ciudad', 'bio', 'color_panel', 'fondo'].forEach((key) => {
-        if (formData[key] != null) payload.append(key, formData[key]);
-      });
-      if (formData.es_privado != null) payload.append('es_privado', formData.es_privado);
-      payload.append('foto_perfil', file);
-      const result = await authService.updateUser(payload);
+      const ext = file.name.split('.').pop().toLowerCase();
+      const fileName = `${type}/${type}_${Date.now()}.${ext}`;
+      const { error: uploadError } = await supabase.storage
+        .from(bucketName)
+        .upload(fileName, file, { cacheControl: '0', upsert: false });
+      if (uploadError) throw uploadError;
+      const { data: urlData } = supabase.storage.from(bucketName).getPublicUrl(fileName);
+      const publicUrl = urlData.publicUrl;
+      const updatedPayload = {
+        ...formData,
+        ...(type === 'avatar' ? { foto_perfil: publicUrl } : { fondo: publicUrl })
+      };
+      setUser(updatedPayload);
+      setFormData(updatedPayload);
+      const result = await authService.updateUser(updatedPayload);
       const backendUser = result?.user || result?.usuario || result;
-      setUser(backendUser);
-      setFormData(backendUser);
-      localStorage.setItem('usuario', JSON.stringify(backendUser));
+      const finalUser = {
+        ...updatedPayload,
+        ...backendUser,
+        foto_perfil: updatedPayload.foto_perfil,
+        fondo: updatedPayload.fondo
+      };
+      setUser(finalUser);
+      setFormData(finalUser);
+      localStorage.setItem('usuario', JSON.stringify(finalUser));
       setStatusMessage({ type: 'success', text: 'Imagen sincronizada correctamente.' });
     } catch (err) {
       setStatusMessage({ type: 'error', text: `Error: ${err.message || 'No se pudo guardar la imagen'}` });

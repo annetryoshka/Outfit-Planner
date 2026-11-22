@@ -11,32 +11,6 @@ const Outfit = {
     return result.rows[0]
   },
 
-  // Outfits públicos de un usuario. Perfil privado: solo el dueño o un seguidor aceptado.
-  async findPublicosByUser(userId, viewerId) {
-    const result = await pool.query(
-      `SELECT o.id, o.user_id, o.nombre, o.ocasion, o.es_publico, o.es_clon,
-              o.imagen_url, o.fecha_calendario, o.canvas_data, o.created_at
-       FROM outfits o
-       JOIN users u ON u.id = o.user_id
-       WHERE o.user_id = $1
-         AND o.es_publico = true
-         AND (
-           u.es_privado IS NOT TRUE
-           OR u.id = $2
-           OR EXISTS (
-             SELECT 1
-             FROM seguidores s
-             WHERE s.follower_id = $2
-               AND s.following_id = u.id
-               AND s.estado = 'aceptado'
-           )
-         )
-       ORDER BY o.created_at DESC`,
-      [userId, viewerId]
-    )
-    return result.rows
-  },
-
   async findByUser(user_id) {
     const result = await pool.query(
       `SELECT * FROM outfits WHERE user_id = $1 ORDER BY created_at DESC`,
